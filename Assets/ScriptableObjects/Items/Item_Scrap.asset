@@ -19,4 +19,6 @@ MonoBehaviour:
   maxStack: 64
   caloricValue: 0
   healValue: 0
+  harvestMultiplier: 1
+  structurePrefab: {fileID: 0}
   itemColor: {r: 0.72, g: 0.74, b: 0.78, a: 1}
