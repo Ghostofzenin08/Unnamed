@@ -124,5 +124,66 @@ namespace Outpost404.Tests
             Assert.AreEqual(0, inventory.GetItemCount(woodItem));
             Assert.AreEqual(0, inventory.GetItemCount(oreItem));
         }
+
+        [Test]
+        public void ConsumeItem_ValidConsumable_RestoresHungerAndHealth()
+        {
+            var food = ScriptableObject.CreateInstance<ItemDataSO>();
+            food.ItemId = "test_food";
+            food.ItemType = ItemType.Consumable;
+            food.CaloricValue = 25f;
+            food.HealValue = 15f;
+
+            inventory.AddItem(food, 2);
+
+            var playerObj = new GameObject("TestPlayerStats");
+            var stats = playerObj.AddComponent<Outpost404.Survival.PlayerStats>();
+            stats.InitializeStats();
+            stats.ConsumeHunger(40f);
+            stats.TakeDamage(30f);
+
+            float initialHunger = stats.CurrentHunger;
+            float initialHealth = stats.CurrentHealth;
+
+            bool consumed = inventory.ConsumeItem(food, stats);
+
+            Assert.IsTrue(consumed);
+            Assert.AreEqual(1, inventory.GetItemCount(food));
+            Assert.AreEqual(initialHunger + 25f, stats.CurrentHunger, 0.01f);
+            Assert.AreEqual(initialHealth + 15f, stats.CurrentHealth, 0.01f);
+
+            Object.DestroyImmediate(playerObj);
+            Object.DestroyImmediate(food);
+        }
+
+        [Test]
+        public void ConsumeItem_NonConsumable_ReturnsFalseAndLeavesItem()
+        {
+            inventory.AddItem(woodItem, 3);
+
+            var playerObj = new GameObject("TestPlayerStats");
+            var stats = playerObj.AddComponent<Outpost404.Survival.PlayerStats>();
+            stats.InitializeStats();
+
+            bool consumed = inventory.ConsumeItem(woodItem, stats);
+
+            Assert.IsFalse(consumed);
+            Assert.AreEqual(3, inventory.GetItemCount(woodItem));
+
+            Object.DestroyImmediate(playerObj);
+        }
+
+        [Test]
+        public void ItemDataSO_ZeroOrNegativeMaxStack_ClampsToOne()
+        {
+            var item = ScriptableObject.CreateInstance<ItemDataSO>();
+            item.MaxStack = -5;
+            Assert.AreEqual(1, item.MaxStack);
+
+            item.MaxStack = 0;
+            Assert.AreEqual(1, item.MaxStack);
+
+            Object.DestroyImmediate(item);
+        }
     }
 }
