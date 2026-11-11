@@ -21,10 +21,11 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 ## 2. Technical Specifications & Stack
 
 * **Engine**: Unity 6 (6000.0.85f2)
-* **Perspective**: High-Angle Top-Down / Bird's-Eye View (56° pitch, smooth follow)
-* **Movement Paradigm**: Rigidbody-driven physics locomotion (WASD) with continuous collision detection and plane-based mouse cursor targeting
-* **Render Pipeline**: Built-In 3D with PBR-compatible stylized shaders
-* **Input Compatibility**: Dual-support architecture (compatible with both the Unity Input System Package and Legacy Input Manager)
+* **Perspective**: High-Angle Top-Down / Bird's-Eye View (56° pitch, yaw orbit support, smooth follow)
+* **Movement Paradigm**: Dynamic Rigidbody physics velocity with continuous collision detection, vertical gravity retention, and 3D world + ground-plane cursor targeting
+* **Render Pipeline**: Built-In 3D with PBR-compatible stylized prototype materials
+* **Input Compatibility**: Dual-support architecture (Unity Input System Keyboard & Gamepad + Legacy Input Manager fallback)
+* **Verification Suite**: 10 automated EditMode tests covering locomotion physics, deadzone protection, input clamping, and camera orbital math
 
 ---
 
@@ -32,9 +33,10 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 
 - [x] **Phase 1: Project Setup & Core Controllers**
   - Project environment initialization & Git tracking
-  - Rigidbody-based `PlayerController` (WASD movement, cursor facing rotation)
-  - `TopDownCameraFollow` smooth-damp follow camera with high-angle orientation
-  - Automated editor hierarchy generator (`Phase1SceneSetup`)
+  - Dynamic Rigidbody `PlayerController` (WASD/Gamepad movement, 3D cursor facing rotation, deadzone protection)
+  - `TopDownCameraFollow` smooth-damp follow camera with high-angle orientation and yaw-aware orbiting
+  - Automated editor hierarchy generator (`Phase1SceneSetup`) with stylized prototype materials
+  - 10 comprehensive automated unit tests (`Phase1ControllerTests`)
 - [ ] **Phase 2: Asset Generation & Environment**
   - AI mesh/texture generation (Player suit, terrain textures)
   - Prototype level graybox layout & NavMesh baking
@@ -52,9 +54,9 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 
 ## 4. Phase 1 Controls
 
-| Action | Key / Input | Description |
-| :--- | :--- | :--- |
-| **Move** | `W` `A` `S` `D` / Arrow Keys | Physics-based locomotion on world XZ plane |
-| **Sprint** | `Left Shift` / `Right Shift` | 1.45x movement speed boost |
-| **Aim / Face** | `Mouse Cursor` | Raycasts onto player ground plane for 360° facing |
-| **Camera** | Automated | SmoothDamp follow with fixed isometric angle |
+| Action | Key / Input | Gamepad | Description |
+| :--- | :--- | :--- | :--- |
+| **Move** | `W` `A` `S` `D` / Arrow Keys | `Left Stick` | Dynamic Rigidbody locomotion on world XZ plane |
+| **Sprint** | `Left Shift` / `Right Shift` | `Left Stick Click` / `RT` | 1.45x movement speed boost |
+| **Aim / Face** | `Mouse Cursor` | Cursor / Aim | 3D collider raycast with ground-plane fallback and deadzone |
+| **Camera** | Automated | Automated | SmoothDamp follow with yaw-aware orbit and pitch framing |
