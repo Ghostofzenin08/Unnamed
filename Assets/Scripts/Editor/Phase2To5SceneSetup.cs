@@ -232,6 +232,7 @@ namespace Outpost404.EditorTools
             trunk.transform.localPosition = new Vector3(0f, 1.5f, 0f);
             trunk.transform.localScale = new Vector3(0.7f, 1.5f, 0.7f);
             trunk.GetComponent<MeshRenderer>().sharedMaterial = trunkMat;
+            Object.DestroyImmediate(trunk.GetComponent<Collider>());
 
             // Canopy
             GameObject canopy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -240,6 +241,7 @@ namespace Outpost404.EditorTools
             canopy.transform.localPosition = new Vector3(0f, 3.8f, 0f);
             canopy.transform.localScale = new Vector3(3.2f, 1.8f, 3.2f);
             canopy.GetComponent<MeshRenderer>().sharedMaterial = foliageMat;
+            Object.DestroyImmediate(canopy.GetComponent<Collider>());
 
             // NavMesh Obstacle & Resource Node on root
             var col = tree.AddComponent<CapsuleCollider>();
@@ -353,7 +355,39 @@ namespace Outpost404.EditorTools
             Slider staminaSlider = CreateBar(statsPanel, "StaminaBar", new Vector2(0f, 40f), new Color(0.2f, 0.65f, 0.95f));
             Slider hungerSlider = CreateBar(statsPanel, "HungerBar", new Vector2(0f, 0f), new Color(0.95f, 0.65f, 0.15f));
 
-            hud.ConfigureComponents(healthSlider, staminaSlider, hungerSlider);
+            // Starvation Warning Banner (top-center)
+            Transform existingStarve = canvasObj.transform.Find("StarvationWarningBanner");
+            if (existingStarve != null) Object.DestroyImmediate(existingStarve.gameObject);
+
+            GameObject starveObj = new GameObject("StarvationWarningBanner");
+            starveObj.transform.SetParent(canvasObj.transform, false);
+            var starveRt = starveObj.AddComponent<RectTransform>();
+            starveRt.anchorMin = new Vector2(0.5f, 1f);
+            starveRt.anchorMax = new Vector2(0.5f, 1f);
+            starveRt.pivot = new Vector2(0.5f, 1f);
+            starveRt.anchoredPosition = new Vector2(0f, -40f);
+            starveRt.sizeDelta = new Vector2(360f, 48f);
+            var starveImg = starveObj.AddComponent<Image>();
+            starveImg.color = new Color(0.85f, 0.15f, 0.15f, 0.85f);
+            starveObj.SetActive(false);
+
+            // Death Banner (center)
+            Transform existingDeath = canvasObj.transform.Find("DeathBanner");
+            if (existingDeath != null) Object.DestroyImmediate(existingDeath.gameObject);
+
+            GameObject deathObj = new GameObject("DeathBanner");
+            deathObj.transform.SetParent(canvasObj.transform, false);
+            var deathRt = deathObj.AddComponent<RectTransform>();
+            deathRt.anchorMin = new Vector2(0.5f, 0.5f);
+            deathRt.anchorMax = new Vector2(0.5f, 0.5f);
+            deathRt.pivot = new Vector2(0.5f, 0.5f);
+            deathRt.anchoredPosition = Vector2.zero;
+            deathRt.sizeDelta = new Vector2(500f, 120f);
+            var deathImg = deathObj.AddComponent<Image>();
+            deathImg.color = new Color(0.1f, 0.05f, 0.05f, 0.95f);
+            deathObj.SetActive(false);
+
+            hud.ConfigureComponents(healthSlider, staminaSlider, hungerSlider, starveObj, deathObj);
             hud.TargetStats = pStats;
         }
 
