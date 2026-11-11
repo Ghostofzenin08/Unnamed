@@ -124,10 +124,18 @@ namespace Outpost404.AI
             }
         }
 
+        private bool IsPlayerValidAndAlive()
+        {
+            if (targetPlayer == null) return false;
+            IDamageable playerDamageable = targetPlayer.GetComponentInParent<IDamageable>() ?? targetPlayer.GetComponent<IDamageable>();
+            if (playerDamageable != null && playerDamageable.IsDead) return false;
+            return true;
+        }
+
         private void UpdatePatrolState(float distToPlayer, float deltaTime)
         {
             float detectRadius = stats != null ? stats.DetectionRadius : 9f;
-            if (targetPlayer != null && distToPlayer <= detectRadius)
+            if (IsPlayerValidAndAlive() && distToPlayer <= detectRadius)
             {
                 TransitionTo(EnemyState.Chase);
                 return;
@@ -135,6 +143,10 @@ namespace Outpost404.AI
 
             if (agent == null || !agent.isOnNavMesh) return;
 
+            if (agent.isStopped)
+            {
+                agent.isStopped = false;
+            }
             agent.speed = stats != null ? stats.PatrolSpeed : 2.5f;
 
             if (patrolWaypoints != null && patrolWaypoints.Length > 0)
@@ -182,7 +194,7 @@ namespace Outpost404.AI
             float attackRange = stats != null ? stats.AttackRange : 1.8f;
             float loseRadius = stats != null ? stats.LoseSightRadius : 14f;
 
-            if (targetPlayer == null || distToPlayer > loseRadius)
+            if (!IsPlayerValidAndAlive() || distToPlayer > loseRadius)
             {
                 TransitionTo(EnemyState.Patrol);
                 return;
@@ -206,7 +218,13 @@ namespace Outpost404.AI
         {
             float attackRange = stats != null ? stats.AttackRange : 1.8f;
 
-            if (targetPlayer == null || distToPlayer > (attackRange * 1.35f))
+            if (!IsPlayerValidAndAlive())
+            {
+                TransitionTo(EnemyState.Patrol);
+                return;
+            }
+
+            if (distToPlayer > (attackRange * 1.35f))
             {
                 TransitionTo(EnemyState.Chase);
                 return;
@@ -254,7 +272,7 @@ namespace Outpost404.AI
 
         public void TakeDamage(float amount, Vector3 hitPoint = default, Vector3 hitNormal = default)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHealth -= amount;
 
@@ -320,6 +338,16 @@ namespace Outpost404.AI
         {
             if (currentState == newState) return;
             currentState = newState;
+
+            if (newState == EnemyState.Patrol)
+            {
+                if (agent != null && agent.isOnNavMesh)
+                {
+                    agent.isStopped = false;
+                    agent.speed = stats != null ? stats.PatrolSpeed : 2.5f;
+                }
+            }
+
             OnStateChanged?.Invoke(newState);
         }
 
