@@ -41,7 +41,7 @@ namespace Outpost404.Inventory
         public string ItemName { get => itemName; set => itemName = value; }
         public string Description { get => description; set => description = value; }
         public ItemType ItemType { get => itemType; set => itemType = value; }
-        public int MaxStack { get => maxStack; set => maxStack = Mathf.Max(1, value); }
+        public int MaxStack { get => Mathf.Max(1, maxStack); set => maxStack = Mathf.Max(1, value); }
         public float CaloricValue { get => caloricValue; set => caloricValue = value; }
         public float HealValue { get => healValue; set => healValue = value; }
         public Color ItemColor { get => itemColor; set => itemColor = value; }
