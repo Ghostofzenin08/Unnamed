@@ -171,6 +171,26 @@ namespace Outpost404.Inventory
             return GetItemCount(item) >= quantity;
         }
 
+        /// <summary>
+        /// Consumes a food/medical item from inventory, applying its caloric and heal values to PlayerStats.
+        /// </summary>
+        public bool ConsumeItem(ItemDataSO item, Outpost404.Survival.PlayerStats stats)
+        {
+            if (item == null || stats == null || stats.IsDead) return false;
+            if (item.ItemType != ItemType.Consumable) return false;
+            if (!RemoveItem(item, 1)) return false;
+
+            if (item.CaloricValue > 0f)
+            {
+                stats.RestoreHunger(item.CaloricValue);
+            }
+            if (item.HealValue > 0f)
+            {
+                stats.Heal(item.HealValue);
+            }
+            return true;
+        }
+
         public void Clear()
         {
             for (int i = 0; i < slots.Count; i++)
