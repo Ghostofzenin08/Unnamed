@@ -31,11 +31,11 @@ namespace Outpost404.Harvesting
         [SerializeField] private GameObject lootPickupPrefab;
 
         public string NodeName { get => nodeName; set => nodeName = value; }
-        public float MaxHealth { get => maxHealth; set => maxHealth = Mathf.Max(1f, value); }
+        public float MaxHealth { get => Mathf.Max(1f, maxHealth); set => maxHealth = Mathf.Max(1f, value); }
         public HarvestToolType RequiredTool { get => requiredTool; set => requiredTool = value; }
         public ItemDataSO DropItem { get => dropItem; set => dropItem = value; }
-        public int MinDropCount { get => minDropCount; set => minDropCount = Mathf.Max(1, value); }
-        public int MaxDropCount { get => maxDropCount; set => maxDropCount = Mathf.Max(minDropCount, value); }
+        public int MinDropCount { get => Mathf.Max(1, minDropCount); set => minDropCount = Mathf.Max(1, value); }
+        public int MaxDropCount { get => Mathf.Max(MinDropCount, maxDropCount); set => maxDropCount = Mathf.Max(MinDropCount, value); }
         public GameObject LootPickupPrefab { get => lootPickupPrefab; set => lootPickupPrefab = value; }
     }
 }
