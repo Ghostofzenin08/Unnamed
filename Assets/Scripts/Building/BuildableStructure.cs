@@ -78,15 +78,17 @@ namespace Outpost404.Building
 
         /// <summary>
         /// Regenerates nearby player health while within the safe zone beacon radius.
+        /// Ignores duplicate hits from multiple child colliders on the same player.
         /// </summary>
         public void ApplyHeatBeaconAura(float deltaTime = -1f)
         {
             float dt = deltaTime >= 0f ? deltaTime : (Time.deltaTime > 0.0001f ? Time.deltaTime : 1.0f);
             Collider[] colliders = Physics.OverlapSphere(transform.position, auraRadius);
+            System.Collections.Generic.HashSet<PlayerStats> healed = new System.Collections.Generic.HashSet<PlayerStats>();
             for (int i = 0; i < colliders.Length; i++)
             {
                 var stats = colliders[i].GetComponent<PlayerStats>() ?? colliders[i].GetComponentInParent<PlayerStats>();
-                if (stats != null && !stats.IsDead && stats.CurrentHealth < stats.MaxHealth)
+                if (stats != null && !stats.IsDead && stats.CurrentHealth < stats.MaxHealth && healed.Add(stats))
                 {
                     stats.Heal(healthRegenPerSecond * dt);
                 }
@@ -95,7 +97,7 @@ namespace Outpost404.Building
 
         public void TakeDamage(float amount, Vector3 hitPoint = default, Vector3 hitNormal = default)
         {
-            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
 
             currentDurability = Mathf.Max(0f, currentDurability - amount);
             OnDurabilityChanged?.Invoke(this, currentDurability);
@@ -108,7 +110,7 @@ namespace Outpost404.Building
 
         public void Repair(float amount)
         {
-            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
 
             currentDurability = Mathf.Min(maxDurability, currentDurability + amount);
             OnDurabilityChanged?.Invoke(this, currentDurability);
@@ -116,7 +118,7 @@ namespace Outpost404.Building
 
         public void SetCurrentDurabilityDirect(float amount)
         {
-            if (float.IsNaN(amount)) return;
+            if (float.IsNaN(amount) || float.IsInfinity(amount)) return;
             currentDurability = Mathf.Clamp(amount, 0f, maxDurability);
             if (currentDurability <= 0.0001f)
             {
