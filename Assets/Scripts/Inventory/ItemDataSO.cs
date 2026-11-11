@@ -7,7 +7,8 @@ namespace Outpost404.Inventory
         Resource,
         Consumable,
         Equipment,
-        Material
+        Material,
+        Structure
     }
 
     /// <summary>
@@ -34,6 +35,13 @@ namespace Outpost404.Inventory
         [Tooltip("Amount of health restored when consumed.")]
         [SerializeField] private float healValue = 0f;
 
+        [Header("Tool & Construction Properties")]
+        [Tooltip("Multiplier applied to resource damage when harvesting.")]
+        [SerializeField] private float harvestMultiplier = 1.0f;
+
+        [Tooltip("Prefab spawned when placing this structure.")]
+        [SerializeField] private GameObject structurePrefab;
+
         [Header("Visual Tint")]
         [SerializeField] private Color itemColor = Color.white;
 
@@ -44,6 +52,8 @@ namespace Outpost404.Inventory
         public int MaxStack { get => Mathf.Max(1, maxStack); set => maxStack = Mathf.Max(1, value); }
         public float CaloricValue { get => caloricValue; set => caloricValue = value; }
         public float HealValue { get => healValue; set => healValue = value; }
+        public float HarvestMultiplier { get => Mathf.Max(1.0f, harvestMultiplier); set => harvestMultiplier = Mathf.Max(1.0f, value); }
+        public GameObject StructurePrefab { get => structurePrefab; set => structurePrefab = value; }
         public Color ItemColor { get => itemColor; set => itemColor = value; }
     }
 }
