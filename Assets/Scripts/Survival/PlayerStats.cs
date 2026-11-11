@@ -92,7 +92,7 @@ namespace Outpost404.Survival
         /// </summary>
         public void Tick(float deltaTime, bool isSprinting)
         {
-            if (isDead || deltaTime <= 0f) return;
+            if (isDead || deltaTime <= 0f || float.IsNaN(deltaTime)) return;
 
             // 1. Hunger Depletion
             float hungerDrain = baseHungerDrainRate * (isSprinting ? sprintHungerMultiplier : 1.0f) * deltaTime;
@@ -142,7 +142,7 @@ namespace Outpost404.Survival
 
         public void TakeDamage(float amount, Vector3 hitPoint = default, Vector3 hitNormal = default)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHealth = Mathf.Clamp(currentHealth - amount, 0f, maxHealth);
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
@@ -155,7 +155,7 @@ namespace Outpost404.Survival
 
         public void Heal(float amount)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHealth = Mathf.Clamp(currentHealth + amount, 0f, maxHealth);
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
@@ -163,7 +163,7 @@ namespace Outpost404.Survival
 
         public bool ConsumeStamina(float amount)
         {
-            if (isDead || amount <= 0f) return false;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return false;
 
             if (currentStamina >= amount)
             {
@@ -178,7 +178,7 @@ namespace Outpost404.Survival
 
         public void RestoreStamina(float amount)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentStamina = Mathf.Clamp(currentStamina + amount, 0f, maxStamina);
             OnStaminaChanged?.Invoke(currentStamina, maxStamina);
@@ -186,7 +186,7 @@ namespace Outpost404.Survival
 
         public void ConsumeHunger(float amount)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHunger = Mathf.Clamp(currentHunger - amount, 0f, maxHunger);
             OnHungerChanged?.Invoke(currentHunger, maxHunger);
@@ -199,7 +199,7 @@ namespace Outpost404.Survival
 
         public void RestoreHunger(float amount)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHunger = Mathf.Clamp(currentHunger + amount, 0f, maxHunger);
             OnHungerChanged?.Invoke(currentHunger, maxHunger);
@@ -207,6 +207,7 @@ namespace Outpost404.Survival
 
         public void SetCurrentHealthDirect(float val)
         {
+            if (float.IsNaN(val)) return;
             currentHealth = Mathf.Clamp(val, 0f, maxHealth);
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
             if (currentHealth <= 0.0001f && !isDead)
@@ -217,12 +218,14 @@ namespace Outpost404.Survival
 
         public void SetCurrentHungerDirect(float val)
         {
+            if (float.IsNaN(val)) return;
             currentHunger = Mathf.Clamp(val, 0f, maxHunger);
             OnHungerChanged?.Invoke(currentHunger, maxHunger);
         }
 
         public void SetCurrentStaminaDirect(float val)
         {
+            if (float.IsNaN(val)) return;
             currentStamina = Mathf.Clamp(val, 0f, maxStamina);
             OnStaminaChanged?.Invoke(currentStamina, maxStamina);
         }
