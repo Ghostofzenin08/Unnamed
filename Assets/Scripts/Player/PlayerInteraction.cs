@@ -26,6 +26,28 @@ namespace Outpost404.Player
 
         public float InteractRadius { get => interactRadius; set => interactRadius = Mathf.Max(0.5f, value); }
         public float HarvestDamage { get => harvestDamage; set => harvestDamage = Mathf.Max(1f, value); }
+        public InventorySystem Inventory { get => inventory; set => inventory = value; }
+
+        /// <summary>
+        /// Calculates effective harvest damage incorporating any tool harvest multipliers in inventory.
+        /// </summary>
+        public float GetEffectiveHarvestDamage()
+        {
+            float mult = 1.0f;
+            if (inventory == null) inventory = GetComponent<InventorySystem>();
+            if (inventory != null && inventory.Slots != null)
+            {
+                for (int i = 0; i < inventory.Slots.Count; i++)
+                {
+                    var slot = inventory.Slots[i];
+                    if (!slot.IsEmpty && slot.item != null && slot.item.HarvestMultiplier > mult)
+                    {
+                        mult = slot.item.HarvestMultiplier;
+                    }
+                }
+            }
+            return harvestDamage * mult;
+        }
 
         private void Awake()
         {
@@ -116,7 +138,7 @@ namespace Outpost404.Player
                 {
                     Vector3 closestPoint = hits[i].ClosestPoint(transform.position);
                     Vector3 dir = (node.transform.position - transform.position).normalized;
-                    node.TakeDamage(harvestDamage, closestPoint, dir);
+                    node.TakeDamage(GetEffectiveHarvestDamage(), closestPoint, dir);
                     return true;
                 }
             }
