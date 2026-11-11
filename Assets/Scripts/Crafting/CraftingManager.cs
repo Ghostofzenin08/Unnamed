@@ -79,6 +79,52 @@ namespace Outpost404.Crafting
         }
 
         /// <summary>
+        /// Validates and consumes ingredients from inventory WITHOUT adding crafted items to inventory.
+        /// Used for direct holographic structure placement to prevent item duplication exploits.
+        /// </summary>
+        public bool ConsumeIngredients(RecipeSO recipe)
+        {
+            var inv = TargetInventory;
+            if (recipe == null)
+            {
+                OnCraftFailed?.Invoke(recipe, "Null recipe.");
+                return false;
+            }
+            if (inv == null)
+            {
+                OnCraftFailed?.Invoke(recipe, "No inventory available.");
+                return false;
+            }
+            if (!recipe.CanCraft(inv))
+            {
+                OnCraftFailed?.Invoke(recipe, "Insufficient ingredients.");
+                return false;
+            }
+
+            // Aggregate duplicate ingredient entries to consume in unified counts
+            Dictionary<ItemDataSO, int> requiredTotals = new Dictionary<ItemDataSO, int>();
+            for (int i = 0; i < recipe.Ingredients.Count; i++)
+            {
+                var req = recipe.Ingredients[i];
+                if (req != null && req.Item != null && req.Count > 0)
+                {
+                    if (requiredTotals.ContainsKey(req.Item))
+                        requiredTotals[req.Item] += req.Count;
+                    else
+                        requiredTotals[req.Item] = req.Count;
+                }
+            }
+
+            foreach (var pair in requiredTotals)
+            {
+                inv.RemoveItem(pair.Key, pair.Value);
+            }
+
+            OnRecipeCrafted?.Invoke(recipe);
+            return true;
+        }
+
+        /// <summary>
         /// Crafts the specified recipe, consuming ingredients and placing the output in inventory.
         /// Any overflow is dropped safely as a world loot pickup.
         /// </summary>
@@ -101,14 +147,23 @@ namespace Outpost404.Crafting
                 return false;
             }
 
-            // Consume all required ingredients
+            // Aggregate duplicate ingredient entries to consume in unified counts
+            Dictionary<ItemDataSO, int> requiredTotals = new Dictionary<ItemDataSO, int>();
             for (int i = 0; i < recipe.Ingredients.Count; i++)
             {
                 var req = recipe.Ingredients[i];
                 if (req != null && req.Item != null && req.Count > 0)
                 {
-                    inv.RemoveItem(req.Item, req.Count);
+                    if (requiredTotals.ContainsKey(req.Item))
+                        requiredTotals[req.Item] += req.Count;
+                    else
+                        requiredTotals[req.Item] = req.Count;
                 }
+            }
+
+            foreach (var pair in requiredTotals)
+            {
+                inv.RemoveItem(pair.Key, pair.Value);
             }
 
             // Yield crafted output
