@@ -164,6 +164,7 @@ namespace Outpost404.EditorTools
             Create3DPickup(envRoot.transform, "Pickup_Rations_1", new Vector3(4f, 0.2f, -4f), itemRations, 2, rationsModel, new Vector3(0.8f, 0.8f, 0.8f));
             Create3DPickup(envRoot.transform, "Pickup_Timber_1", new Vector3(-2f, 0.2f, -5f), itemWood, 4, logsModel, new Vector3(0.8f, 0.8f, 0.8f));
             Create3DPickup(envRoot.transform, "Pickup_ConductiveOre_1", new Vector3(3f, 0.2f, -9f), itemStone, 3, oreModel, new Vector3(0.7f, 0.7f, 0.7f));
+            Create3DPickup(envRoot.transform, "Pickup_BeastMeat_1", new Vector3(-4f, 0.2f, -3f), itemRawMeat, 2, meatModel, new Vector3(0.75f, 0.75f, 0.75f));
 
             // 10. Player Configuration with OrbitalAstronaut.glb
             GameObject player = GameObject.FindWithTag("Player");
@@ -247,6 +248,7 @@ namespace Outpost404.EditorTools
             pPlacer.PlayerTransform = player.transform;
             pPlacer.ValidHologramMaterial = validHoloMat;
             pPlacer.BlockedHologramMaterial = blockedHoloMat;
+            pCombat.TargetStructurePlacer = pPlacer;
 
             // 11. Enemy Patrols with AlienPredatorBeast.obj
             GameObject enemiesRoot = GameObject.Find("Enemies");
@@ -549,6 +551,19 @@ namespace Outpost404.EditorTools
 
         private static void SetupHUDAndCraftingCanvas(PlayerStats pStats, CraftingManager pCrafting, InventorySystem pInv, StructurePlacer pPlacer)
         {
+            // Ensure EventSystem exists for UI button interaction
+            var eventSystem = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            if (eventSystem == null)
+            {
+                var esObj = new GameObject("EventSystem");
+                esObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+                esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+#else
+                esObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+#endif
+            }
+
             GameObject canvasObj = GameObject.Find("HUD_Canvas");
             if (canvasObj == null)
             {
