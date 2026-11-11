@@ -6,8 +6,9 @@ using UnityEngine.InputSystem;
 namespace Outpost404.Player
 {
     /// <summary>
-    /// Rigidbody-based top-down player movement and mouse-look controller.
-    /// Handles responsive WASD physics locomotion and cursor-aiming plane raycasts.
+    /// Rigidbody-based top-down player movement and cursor-aiming controller.
+    /// Handles responsive WASD/gamepad physics locomotion, proper 3D world raycasting,
+    /// and smooth rotation with close-range deadzone protection.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(Collider))]
@@ -17,7 +18,7 @@ namespace Outpost404.Player
         [Tooltip("Standard walking speed in world units per second.")]
         [SerializeField] private float moveSpeed = 6.5f;
 
-        [Tooltip("Sprint speed multiplier applied when holding Shift.")]
+        [Tooltip("Sprint speed multiplier applied when holding Shift or Sprint button.")]
         [SerializeField] private float sprintMultiplier = 1.45f;
 
         [Tooltip("Acceleration factor for responsive, non-slippery physics movement.")]
@@ -29,6 +30,12 @@ namespace Outpost404.Player
 
         [Tooltip("When enabled, the character faces the cursor immediately without rotational lag.")]
         [SerializeField] private bool instantRotation = false;
+
+        [Tooltip("Minimum distance from player to cursor required to rotate (prevents violent spinning when cursor is over player).")]
+        [SerializeField] private float rotationDeadzone = 0.35f;
+
+        [Tooltip("Layers checked for mouse-to-world raycasting (terrain, ground, obstacles).")]
+        [SerializeField] private LayerMask aimLayerMask = ~0;
 
         [Header("Camera & Raycast References")]
         [Tooltip("Reference to the main gameplay camera. Auto-assigned if empty.")]
@@ -44,13 +51,17 @@ namespace Outpost404.Player
         private bool isSprinting;
 
         public Vector3 CurrentMoveDirection => targetMoveVelocity.normalized;
+        public Vector3 CurrentVelocity => currentVelocity;
         public bool IsMoving => targetMoveVelocity.sqrMagnitude > 0.01f;
         public bool IsSprinting => isSprinting;
         public Vector3 LookTargetPoint => lookTargetPoint;
+        public bool HasLookTarget => hasLookTarget;
+        public float MoveSpeed { get => moveSpeed; set => moveSpeed = value; }
+        public float SprintMultiplier { get => sprintMultiplier; set => sprintMultiplier = value; }
 
         private void Awake()
         {
-            rb = GetComponent<Rigidbody>();
+            if (rb == null) rb = GetComponent<Rigidbody>();
             ConfigureRigidbody();
 
             if (mainCamera == null)
@@ -59,8 +70,16 @@ namespace Outpost404.Player
             }
         }
 
-        private void ConfigureRigidbody()
+        private void Reset()
         {
+            ConfigureRigidbody();
+        }
+
+        public void ConfigureRigidbody()
+        {
+            if (rb == null) rb = GetComponent<Rigidbody>();
+            if (rb == null) return;
+
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             // Lock X and Z rotation axes to maintain upright stance
@@ -95,7 +114,22 @@ namespace Outpost404.Player
                 if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) horizontal -= 1f;
                 sprintPressed = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
             }
-            else
+
+            if (Gamepad.current != null)
+            {
+                Vector2 stick = Gamepad.current.leftStick.ReadValue();
+                if (stick.sqrMagnitude > 0.04f)
+                {
+                    horizontal = stick.x;
+                    vertical = stick.y;
+                }
+                if (Gamepad.current.leftStickButton.isPressed || Gamepad.current.rightTrigger.isPressed)
+                {
+                    sprintPressed = true;
+                }
+            }
+
+            if (Keyboard.current == null && Gamepad.current == null)
             {
                 horizontal = Input.GetAxisRaw("Horizontal");
                 vertical = Input.GetAxisRaw("Vertical");
@@ -116,7 +150,7 @@ namespace Outpost404.Player
             isSprinting = sprintPressed;
             float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f);
 
-            // World-space XZ velocity vector
+            // World-space horizontal velocity target
             Vector3 desiredDirection = new Vector3(rawInput.x, 0f, rawInput.y);
             targetMoveVelocity = desiredDirection * speed;
         }
@@ -145,27 +179,41 @@ namespace Outpost404.Player
 
             Ray ray = mainCamera.ScreenPointToRay(screenPoint);
 
-            // Infinite horizontal plane anchored at the character's feet/center
-            Plane groundPlane = new Plane(Vector3.up, transform.position);
-
-            if (groundPlane.Raycast(ray, out float hitDistance))
+            // 1. Raycast against physical 3D colliders (terrain, ground, obstacles)
+            if (Physics.Raycast(ray, out RaycastHit hit, 500f, aimLayerMask, QueryTriggerInteraction.Ignore))
             {
-                lookTargetPoint = ray.GetPoint(hitDistance);
+                lookTargetPoint = hit.point;
                 hasLookTarget = true;
             }
             else
             {
-                hasLookTarget = false;
+                // 2. Fallback: mathematical horizontal plane anchored at player height
+                Plane groundPlane = new Plane(Vector3.up, transform.position);
+                if (groundPlane.Raycast(ray, out float hitDistance))
+                {
+                    lookTargetPoint = ray.GetPoint(hitDistance);
+                    hasLookTarget = true;
+                }
+                else
+                {
+                    hasLookTarget = false;
+                }
             }
         }
 
         private void ExecutePhysicsMovement()
         {
-            // Rapid acceleration to eliminate sluggishness
+            // Rapid acceleration curve to eliminate sluggishness while maintaining smooth transitions
             currentVelocity = Vector3.MoveTowards(currentVelocity, targetMoveVelocity, acceleration * Time.fixedDeltaTime);
 
-            Vector3 displacement = currentVelocity * Time.fixedDeltaTime;
-            rb.MovePosition(rb.position + displacement);
+            // Apply dynamic Rigidbody velocity, preserving vertical velocity (gravity / falling)
+#if UNITY_6000_0_OR_NEWER
+            Vector3 currentRbVelocity = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(currentVelocity.x, currentRbVelocity.y, currentVelocity.z);
+#else
+            Vector3 currentRbVelocity = rb.velocity;
+            rb.velocity = new Vector3(currentVelocity.x, currentRbVelocity.y, currentVelocity.z);
+#endif
         }
 
         private void ExecutePhysicsRotation()
@@ -175,7 +223,8 @@ namespace Outpost404.Player
             Vector3 lookDir = lookTargetPoint - rb.position;
             lookDir.y = 0f; // Constrain rotation strictly to horizontal plane
 
-            if (lookDir.sqrMagnitude > 0.001f)
+            // Only rotate if cursor is outside the deadzone to prevent erratic spinning near character center
+            if (lookDir.sqrMagnitude >= (rotationDeadzone * rotationDeadzone))
             {
                 Quaternion targetRotation = Quaternion.LookRotation(lookDir, Vector3.up);
 
@@ -195,14 +244,29 @@ namespace Outpost404.Player
             }
         }
 
+        /// <summary>
+        /// Programmatically inject movement input (useful for testing and AI).
+        /// </summary>
+        public void SetInputOverride(Vector2 input, bool sprint)
+        {
+            rawInput = Vector2.ClampMagnitude(input, 1f);
+            isSprinting = sprint;
+            float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f);
+            targetMoveVelocity = new Vector3(rawInput.x, 0f, rawInput.y) * speed;
+        }
+
         private void OnDrawGizmosSelected()
         {
             if (hasLookTarget)
             {
                 Gizmos.color = Color.cyan;
-                Gizmos.DrawSphere(lookTargetPoint, 0.12f);
+                Gizmos.DrawSphere(lookTargetPoint, 0.15f);
                 Gizmos.DrawLine(transform.position, lookTargetPoint);
             }
+
+            // Draw rotation deadzone
+            Gizmos.color = new Color(1f, 0.5f, 0f, 0.4f);
+            Gizmos.DrawWireSphere(transform.position, rotationDeadzone);
         }
     }
 }
