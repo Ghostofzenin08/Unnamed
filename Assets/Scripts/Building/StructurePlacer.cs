@@ -113,6 +113,28 @@ namespace Outpost404.Building
             CreateGhost();
         }
 
+        /// <summary>
+        /// Explicitly updates ghost placement location and evaluates collision/distance validity.
+        /// Used by input raycasting and automated test suites.
+        /// </summary>
+        public bool SetPlacementLocation(Vector3 position, Quaternion rotation)
+        {
+            currentSnappedPosition = position;
+            currentYaw = rotation.eulerAngles.y;
+            Vector3 extents = currentPrefab != null ? currentPrefab.PlacementExtents : Vector3.one;
+            float playerDist = playerTransform != null ? Vector3.Distance(playerTransform.position, position) : 0f;
+            isCurrentLocationValid = EvaluatePlacement(position, rotation, extents, playerDist);
+
+            if (ghostObject != null)
+            {
+                ghostObject.transform.position = position;
+                ghostObject.transform.rotation = rotation;
+                UpdateGhostMaterial(isCurrentLocationValid ? validHologramMaterial : blockedHologramMaterial);
+            }
+
+            return isCurrentLocationValid;
+        }
+
         public void CancelPlacement()
         {
             if (ghostObject != null)
@@ -146,6 +168,9 @@ namespace Outpost404.Building
             var colliders = ghostObject.GetComponentsInChildren<Collider>(true);
             for (int i = 0; i < colliders.Length; i++) DestroyImmediate(colliders[i]);
 
+            var obstacles = ghostObject.GetComponentsInChildren<UnityEngine.AI.NavMeshObstacle>(true);
+            for (int i = 0; i < obstacles.Length; i++) DestroyImmediate(obstacles[i]);
+
             var lights = ghostObject.GetComponentsInChildren<Light>(true);
             for (int i = 0; i < lights.Length; i++) lights[i].enabled = false;
 
@@ -157,14 +182,33 @@ namespace Outpost404.Building
         {
             if (!isPlacing || currentPrefab == null) return;
 
-            HandleInput();
+            // Auto-cancel placement if player dies
+            if (playerTransform != null)
+            {
+                var stats = playerTransform.GetComponent<Outpost404.Survival.PlayerStats>();
+                if (stats != null && stats.IsDead)
+                {
+                    CancelPlacement();
+                    return;
+                }
+            }
+
+            // Raycast and update position & validity FIRST to prevent single-frame input lag or stale confirmation
             UpdatePlacementRaycast();
+            HandleInput();
         }
 
         private void HandleInput()
         {
-            // Rotate ghost with 'R'
+            // Do not confirm placement if pointer is over UI buttons
+            if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+            {
+                return;
+            }
+
+            // Rotate ghost with 'R' or Mouse Wheel Scroll
             bool rotatePressed = false;
+            float scrollDelta = 0f;
             bool confirmPressed = false;
             bool cancelPressed = false;
 
@@ -178,22 +222,36 @@ namespace Outpost404.Building
             {
                 if (Mouse.current.leftButton.wasPressedThisFrame) confirmPressed = true;
                 if (Mouse.current.rightButton.wasPressedThisFrame) cancelPressed = true;
+                scrollDelta = Mouse.current.scroll.ReadValue().y;
             }
             if (Keyboard.current == null && Mouse.current == null)
             {
                 rotatePressed = Input.GetKeyDown(KeyCode.R);
                 confirmPressed = Input.GetMouseButtonDown(0);
                 cancelPressed = Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape);
+                scrollDelta = Input.mouseScrollDelta.y;
             }
 #else
             rotatePressed = Input.GetKeyDown(KeyCode.R);
             confirmPressed = Input.GetMouseButtonDown(0);
             cancelPressed = Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape);
+            scrollDelta = Input.mouseScrollDelta.y;
 #endif
 
             if (rotatePressed)
             {
                 currentYaw = (currentYaw + rotationStepDegrees) % 360f;
+            }
+            else if (Mathf.Abs(scrollDelta) > 0.05f)
+            {
+                if (scrollDelta > 0f)
+                {
+                    currentYaw = (currentYaw + rotationStepDegrees) % 360f;
+                }
+                else
+                {
+                    currentYaw = (currentYaw - rotationStepDegrees + 360f) % 360f;
+                }
             }
 
             if (cancelPressed)
@@ -232,14 +290,19 @@ namespace Outpost404.Building
             Vector3 candidatePos = Vector3.zero;
             bool hitGround = false;
 
+            // Prioritize ground raycast with walkable slope check
             if (Physics.Raycast(ray, out RaycastHit hit, 150f, groundLayer, QueryTriggerInteraction.Ignore))
             {
-                candidatePos = hit.point;
-                hitGround = true;
+                if (hit.normal.y >= 0.55f)
+                {
+                    candidatePos = hit.point;
+                    hitGround = true;
+                }
             }
-            else
+
+            // Fallback to ground plane at y = 0
+            if (!hitGround)
             {
-                // Fallback to ground plane at y = 0
                 Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
                 if (groundPlane.Raycast(ray, out float enter))
                 {
@@ -250,16 +313,14 @@ namespace Outpost404.Building
 
             if (hitGround)
             {
-                currentSnappedPosition = candidatePos;
+                if (!ghostObject.activeSelf) ghostObject.SetActive(true);
                 Quaternion rot = Quaternion.Euler(0f, currentYaw, 0f);
-                ghostObject.transform.position = candidatePos;
-                ghostObject.transform.rotation = rot;
-
-                Vector3 extents = currentPrefab.PlacementExtents;
-                float playerDist = playerTransform != null ? Vector3.Distance(playerTransform.position, candidatePos) : 0f;
-
-                isCurrentLocationValid = EvaluatePlacement(candidatePos, rot, extents, playerDist);
-                UpdateGhostMaterial(isCurrentLocationValid ? validHologramMaterial : blockedHologramMaterial);
+                SetPlacementLocation(candidatePos, rot);
+            }
+            else
+            {
+                isCurrentLocationValid = false;
+                if (ghostObject.activeSelf) ghostObject.SetActive(false);
             }
         }
 
@@ -269,6 +330,12 @@ namespace Outpost404.Building
         /// </summary>
         public bool EvaluatePlacement(Vector3 position, Quaternion rotation, Vector3 extents, float playerDistance)
         {
+            if (float.IsNaN(position.x) || float.IsNaN(position.y) || float.IsNaN(position.z) ||
+                float.IsInfinity(position.x) || float.IsInfinity(playerDistance))
+            {
+                return false;
+            }
+
             if (playerDistance > maxBuildDistance)
             {
                 return false;
@@ -277,8 +344,14 @@ namespace Outpost404.Building
             // Sync transforms prior to physics overlap test
             Physics.SyncTransforms();
 
-            Vector3 checkCenter = position + Vector3.up * extents.y;
-            Vector3 checkHalfExtents = extents * 0.92f; // Slight margin for tolerance
+            Vector3 safeExtents = new Vector3(
+                Mathf.Max(0.1f, Mathf.Abs(extents.x)),
+                Mathf.Max(0.1f, Mathf.Abs(extents.y)),
+                Mathf.Max(0.1f, Mathf.Abs(extents.z))
+            );
+
+            Vector3 checkCenter = position + Vector3.up * safeExtents.y;
+            Vector3 checkHalfExtents = safeExtents * 0.92f; // Slight margin for tolerance
 
             Collider[] overlaps = Physics.OverlapBox(checkCenter, checkHalfExtents, rotation, obstacleLayers, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < overlaps.Length; i++)
@@ -313,14 +386,27 @@ namespace Outpost404.Building
                 return false;
             }
 
-            // 1. If tied to a recipe, validate and craft
+            // 1. If tied to a recipe, validate and consume ingredients (avoids duplicate item in inventory)
             if (currentRecipe != null)
             {
                 var mgr = CraftingManager;
                 if (mgr != null)
                 {
-                    if (!mgr.CanCraft(currentRecipe)) return false;
-                    if (!mgr.Craft(currentRecipe)) return false;
+                    if (!mgr.ConsumeIngredients(currentRecipe)) return false;
+                }
+                else
+                {
+                    var inv = Inventory;
+                    if (inv == null || !currentRecipe.CanCraft(inv)) return false;
+
+                    for (int i = 0; i < currentRecipe.Ingredients.Count; i++)
+                    {
+                        var req = currentRecipe.Ingredients[i];
+                        if (req != null && req.Item != null && req.Count > 0)
+                        {
+                            inv.RemoveItem(req.Item, req.Count);
+                        }
+                    }
                 }
             }
             // 2. Or if tied to a pre-crafted item, consume from inventory
