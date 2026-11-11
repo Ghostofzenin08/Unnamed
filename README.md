@@ -27,7 +27,7 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * **Combat & Damage**: Unified `IDamageable` interface shared across Player vitals, Enemy AI beasts, and Harvestable World Nodes
 * **AI Architecture**: NavMeshAgent Finite State Machine (`Patrol` -> `Chase` -> `Attack` -> `Dead`) with line of sight and radius awareness
 * **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
-* **Verification Suite**: 41 automated EditMode NUnit tests (Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM) with 100% pass rate in Unity Test Runner
+* **Verification Suite**: 49 automated EditMode NUnit tests (Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM) with 100% pass rate in Unity Test Runner
 
 ---
 
@@ -65,7 +65,8 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 | **Sprint** | `Left Shift` / `Right Shift` | `Left Stick Click` / `RT` | Speed boost; consumes stamina and accelerates hunger depletion |
 | **Aim / Face** | `Mouse Cursor` | Cursor / Aim | 3D collider raycast with ground-plane fallback and deadzone |
 | **Melee Attack** | `Left Mouse Button` | `Button West` / `X` | Melee swing attack; consumes stamina, damages enemies and resource nodes |
-| **Interact / Loot** | `E` | `Button South` / `A` | Collect nearby dropped items and interact with objects |
+| **Interact / Harvest** | `E` | `Button South` / `A` | Collect nearby dropped items and harvest/interact with resource nodes |
+| **Quick Eat / Consume** | `Q` | `D-Pad Up` | Consumes available food/rations from inventory to restore hunger & health |
 | **Camera Follow**| Automated | Automated | SmoothDamp follow with yaw-aware orbit and pitch framing |
 
 ---
@@ -79,14 +80,14 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * `PlayerController`: Locomotion & cursor aiming
 * `PlayerStats`: Health (100), Stamina (100), Hunger (100), sprint check
 * `PlayerCombat`: Attack Damage (25), Cooldown (0.45s), Stamina Cost (12), Range (1.6m)
-* `PlayerInteraction`: Interact Radius (2.5m), Interact Key (E)
-* `InventorySystem`: 16 slots with item stacking
+* `PlayerInteraction`: Interact Radius (2.5m), Interact Key (E), Quick Eat Key (Q)
+* `InventorySystem`: 16 slots with item stacking and food consumption
 
 ### UI HUD (`GameObject: HUD_Canvas`)
 * `Canvas` (Screen Space - Overlay)
 * `CanvasScaler` (Scale With Screen Size, 1920x1080)
 * `GraphicRaycaster`
-* `SurvivalHUD`: Subscribes to `PlayerStats` events; drives Health, Stamina, and Hunger sliders
+* `SurvivalHUD`: Subscribes to `PlayerStats` events; drives Health, Stamina, Hunger sliders, starvation warning, and death banners
 
 ### Harvestable Nodes (`GameObject: Tree_Alien_*` / `Rock_Pulse_*`)
 * Visual mesh (Trunk & Canopy / Basalt rock body)
@@ -109,8 +110,8 @@ Run EditMode tests via Unity Test Runner or CLI:
 unity cmd "test run"
 ```
 * **Locomotion & Camera**: 10 tests
-* **Survival Stats**: 11 tests
-* **Inventory System**: 8 tests
-* **Resource Harvesting**: 4 tests
-* **Enemy AI & Combat**: 8 tests
-* **Total**: 41 passed / 0 failed (100% pass rate)
+* **Survival Stats**: 12 tests
+* **Inventory System**: 11 tests
+* **Resource Harvesting**: 6 tests
+* **Enemy AI & Combat**: 10 tests
+* **Total**: 49 passed / 0 failed (100% pass rate)
