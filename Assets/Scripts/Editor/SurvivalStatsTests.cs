@@ -142,5 +142,29 @@ namespace Outpost404.Tests
             stats.RestoreHunger(100f);
             Assert.AreEqual(stats.MaxHunger, stats.CurrentHunger);
         }
+
+        [Test]
+        public void Stats_NaNInputs_GracefullyIgnoredWithoutCorruptingState()
+        {
+            float healthBefore = stats.CurrentHealth;
+            float staminaBefore = stats.CurrentStamina;
+            float hungerBefore = stats.CurrentHunger;
+
+            stats.TakeDamage(float.NaN);
+            stats.Heal(float.NaN);
+            stats.ConsumeStamina(float.NaN);
+            stats.RestoreStamina(float.NaN);
+            stats.ConsumeHunger(float.NaN);
+            stats.RestoreHunger(float.NaN);
+            stats.Tick(float.NaN, false);
+            stats.SetCurrentHealthDirect(float.NaN);
+
+            Assert.IsFalse(float.IsNaN(stats.CurrentHealth), "Health must never become NaN.");
+            Assert.IsFalse(float.IsNaN(stats.CurrentStamina), "Stamina must never become NaN.");
+            Assert.IsFalse(float.IsNaN(stats.CurrentHunger), "Hunger must never become NaN.");
+            Assert.AreEqual(healthBefore, stats.CurrentHealth);
+            Assert.AreEqual(staminaBefore, stats.CurrentStamina);
+            Assert.AreEqual(hungerBefore, stats.CurrentHunger);
+        }
     }
 }
