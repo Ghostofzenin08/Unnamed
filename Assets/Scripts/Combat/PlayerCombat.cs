@@ -27,6 +27,7 @@ namespace Outpost404.Combat
         private float lastAttackTime = -99f;
         private PlayerStats playerStats;
         private Outpost404.Inventory.InventorySystem inventory;
+        private Outpost404.Building.StructurePlacer structurePlacer;
 
         public event Action OnAttackExecuted;
         public event Action<IDamageable, float> OnTargetHit;
@@ -42,6 +43,16 @@ namespace Outpost404.Combat
                 return inventory;
             }
             set => inventory = value;
+        }
+
+        public Outpost404.Building.StructurePlacer TargetStructurePlacer
+        {
+            get
+            {
+                if (structurePlacer == null) structurePlacer = GetComponent<Outpost404.Building.StructurePlacer>();
+                return structurePlacer;
+            }
+            set => structurePlacer = value;
         }
 
         /// <summary>
@@ -81,17 +92,23 @@ namespace Outpost404.Combat
         }
 
         public bool CanAttack => (Time.time >= lastAttackTime + attackCooldown) &&
-                                 (TargetStats == null || TargetStats.CurrentStamina >= staminaCost);
+                                 (TargetStats == null || TargetStats.CurrentStamina >= staminaCost) &&
+                                 (TargetStructurePlacer == null || !TargetStructurePlacer.IsPlacing);
 
         private void Awake()
         {
             if (playerStats == null) playerStats = GetComponent<PlayerStats>();
+            if (structurePlacer == null) structurePlacer = GetComponent<Outpost404.Building.StructurePlacer>();
         }
 
         private void Update()
         {
             var stats = TargetStats;
             if (stats != null && stats.IsDead) return;
+
+            // Suppress melee attacks while placing holographic structures or clicking UI elements
+            if (TargetStructurePlacer != null && TargetStructurePlacer.IsPlacing) return;
+            if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
 
             bool attackRequested = false;
 #if ENABLE_INPUT_SYSTEM
