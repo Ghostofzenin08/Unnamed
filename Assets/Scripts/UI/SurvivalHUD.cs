@@ -40,6 +40,8 @@ namespace Outpost404.UI
 
         private void Start()
         {
+            ResolveFillImages();
+
             if (targetStats == null)
             {
                 var player = GameObject.FindWithTag("Player");
@@ -57,6 +59,22 @@ namespace Outpost404.UI
 
             if (starvationWarningBanner != null) starvationWarningBanner.SetActive(false);
             if (deathBanner != null) deathBanner.SetActive(false);
+        }
+
+        private void ResolveFillImages()
+        {
+            if (healthFillImage == null && healthSlider != null && healthSlider.fillRect != null)
+            {
+                healthFillImage = healthSlider.fillRect.GetComponent<Image>();
+            }
+            if (staminaFillImage == null && staminaSlider != null && staminaSlider.fillRect != null)
+            {
+                staminaFillImage = staminaSlider.fillRect.GetComponent<Image>();
+            }
+            if (hungerFillImage == null && hungerSlider != null && hungerSlider.fillRect != null)
+            {
+                hungerFillImage = hungerSlider.fillRect.GetComponent<Image>();
+            }
         }
 
         private void OnDestroy()
@@ -153,6 +171,7 @@ namespace Outpost404.UI
             hungerSlider = hunger;
             starvationWarningBanner = starveBanner;
             deathBanner = deadBanner;
+            ResolveFillImages();
         }
     }
 }
