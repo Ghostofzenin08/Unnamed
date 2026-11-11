@@ -389,5 +389,164 @@ namespace Outpost404.Tests
             Object.DestroyImmediate(pCombat);
             Object.DestroyImmediate(nodeObj);
         }
+
+        [Test]
+        public void StructurePlacer_TryConfirmPlacement_WithRecipe_ConsumesIngredientsWithoutDuplication()
+        {
+            BuildableStructure spawnedStructure = null;
+            structurePlacer.OnStructurePlaced += (s, pos) => spawnedStructure = s;
+
+            inventory.AddItem(woodItem, 4);
+            Assert.AreEqual(4, inventory.GetItemCount(woodItem));
+            Assert.AreEqual(0, inventory.GetItemCount(barricadeItem));
+
+            playerObj.transform.position = Vector3.zero;
+            structurePlacer.PlayerTransform = playerObj.transform;
+            structurePlacer.StartPlacement(barricadeStructure, barricadeRecipe);
+
+            structurePlacer.SetPlacementLocation(new Vector3(2f, 0f, 2f), Quaternion.identity);
+            Assert.IsTrue(structurePlacer.IsCurrentLocationValid);
+
+            bool placed = structurePlacer.TryConfirmPlacement();
+
+            Assert.IsTrue(placed, "Placement confirmation should succeed with sufficient recipe ingredients.");
+            Assert.AreEqual(0, inventory.GetItemCount(woodItem), "Ingredients must be consumed from inventory.");
+            Assert.AreEqual(0, inventory.GetItemCount(barricadeItem), "Direct construction must NOT duplicate an extra barricade item into inventory.");
+
+            Assert.IsNotNull(spawnedStructure, "World structure must be spawned upon confirmation.");
+            Assert.AreNotEqual(barricadePrefabObj, spawnedStructure.gameObject, "Spawned structure must be an instance, not the template prefab.");
+            Object.DestroyImmediate(spawnedStructure.gameObject);
+        }
+
+        [Test]
+        public void StructurePlacer_TryConfirmPlacement_WithPreCraftedItem_ConsumesItemFromInventory()
+        {
+            BuildableStructure spawnedStructure = null;
+            structurePlacer.OnStructurePlaced += (s, pos) => spawnedStructure = s;
+
+            inventory.AddItem(barricadeItem, 1);
+            Assert.AreEqual(1, inventory.GetItemCount(barricadeItem));
+
+            playerObj.transform.position = Vector3.zero;
+            structurePlacer.PlayerTransform = playerObj.transform;
+            structurePlacer.StartPlacement(barricadeStructure, null, barricadeItem);
+
+            structurePlacer.SetPlacementLocation(new Vector3(2f, 0f, 2f), Quaternion.identity);
+            Assert.IsTrue(structurePlacer.IsCurrentLocationValid);
+
+            bool placed = structurePlacer.TryConfirmPlacement();
+
+            Assert.IsTrue(placed);
+            Assert.AreEqual(0, inventory.GetItemCount(barricadeItem), "Pre-crafted structure item must be removed from inventory on placement.");
+
+            Assert.IsNotNull(spawnedStructure);
+            Assert.AreNotEqual(barricadePrefabObj, spawnedStructure.gameObject);
+            Object.DestroyImmediate(spawnedStructure.gameObject);
+        }
+
+        [Test]
+        public void PlayerCombat_WhilePlacingStructure_CannotAttack()
+        {
+            var pStats = playerObj.AddComponent<PlayerStats>();
+            pStats.InitializeStats();
+
+            var pCombat = playerObj.AddComponent<PlayerCombat>();
+            pCombat.TargetStats = pStats;
+            pCombat.TargetStructurePlacer = structurePlacer;
+
+            Assert.IsTrue(pCombat.CanAttack, "Should be able to attack when not placing.");
+
+            structurePlacer.StartPlacement(barricadeStructure);
+            Assert.IsTrue(structurePlacer.IsPlacing);
+            Assert.IsFalse(pCombat.CanAttack, "Melee attack must be inhibited while in structure placement mode.");
+            Assert.IsFalse(pCombat.TryAttack(), "TryAttack must fail while placing.");
+            Assert.AreEqual(100f, pStats.CurrentStamina, "No stamina should be deducted while placing.");
+
+            structurePlacer.CancelPlacement();
+            Assert.IsFalse(structurePlacer.IsPlacing);
+            Assert.IsTrue(pCombat.CanAttack, "Attack capability should restore immediately after cancelling placement.");
+
+            Object.DestroyImmediate(pCombat);
+            Object.DestroyImmediate(pStats);
+        }
+
+        [Test]
+        public void StructurePlacer_GhostObject_StripsNavMeshObstacle()
+        {
+            var navObs = barricadePrefabObj.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+            navObs.carving = true;
+
+            structurePlacer.StartPlacement(barricadeStructure);
+
+            var ghost = GameObject.Find("Prefab_Barricade_Ghost");
+            Assert.IsNotNull(ghost, "Ghost object should exist while placing.");
+            Assert.IsNull(ghost.GetComponentInChildren<UnityEngine.AI.NavMeshObstacle>(), "Ghost preview must strip NavMeshObstacle so it doesn't carve real-time pathing holes.");
+
+            structurePlacer.CancelPlacement();
+            Object.DestroyImmediate(navObs);
+        }
+
+        [Test]
+        public void BuildableStructure_HeatBeacon_MultiColliderPlayer_HealsOnlyOncePerTick()
+        {
+            var beaconObj = new GameObject("PulseBeacon");
+            var beacon = beaconObj.AddComponent<BuildableStructure>();
+            beacon.AuraRadius = 6f;
+            beacon.HealthRegenPerSecond = 10f;
+
+            var pStats = playerObj.AddComponent<PlayerStats>();
+            pStats.InitializeStats();
+            pStats.TakeDamage(50f); // 50 / 100 HP
+
+            // Add multiple child colliders to player
+            var col1 = playerObj.AddComponent<CapsuleCollider>();
+            var childObj = new GameObject("PlayerChild");
+            childObj.transform.SetParent(playerObj.transform, false);
+            var col2 = childObj.AddComponent<BoxCollider>();
+
+            playerObj.transform.position = new Vector3(1f, 0f, 0f);
+            beaconObj.transform.position = Vector3.zero;
+            Physics.SyncTransforms();
+
+            beacon.ApplyHeatBeaconAura(1.0f);
+
+            // Should heal exactly 10 HP (from 50 to 60), NOT 20 HP (from double collider)
+            Assert.AreEqual(60f, pStats.CurrentHealth, 0.01f, "Player with multiple colliders must only be healed once per tick.");
+
+            Object.DestroyImmediate(beaconObj);
+            Object.DestroyImmediate(pStats);
+            Object.DestroyImmediate(col1);
+            Object.DestroyImmediate(childObj);
+        }
+
+        [Test]
+        public void BuildableStructure_TakeDamageAndRepair_InfinityAndNaN_SafelyIgnored()
+        {
+            barricadeStructure.SetCurrentDurabilityDirect(100f);
+
+            barricadeStructure.TakeDamage(float.NaN);
+            barricadeStructure.TakeDamage(float.PositiveInfinity);
+            barricadeStructure.TakeDamage(float.NegativeInfinity);
+            Assert.AreEqual(100f, barricadeStructure.CurrentDurability);
+
+            barricadeStructure.Repair(float.NaN);
+            barricadeStructure.Repair(float.PositiveInfinity);
+            Assert.AreEqual(100f, barricadeStructure.CurrentDurability);
+
+            barricadeStructure.SetCurrentDurabilityDirect(float.NaN);
+            barricadeStructure.SetCurrentDurabilityDirect(float.PositiveInfinity);
+            Assert.AreEqual(100f, barricadeStructure.CurrentDurability);
+        }
+
+        [Test]
+        public void StructurePlacer_EvaluatePlacement_NaNOrInfinityCoordinates_ReturnsFalse()
+        {
+            Vector3 nanPos = new Vector3(float.NaN, 0f, 0f);
+            Vector3 extents = new Vector3(1f, 1f, 1f);
+            Assert.IsFalse(structurePlacer.EvaluatePlacement(nanPos, Quaternion.identity, extents, 2f));
+
+            Vector3 validPos = new Vector3(2f, 0f, 2f);
+            Assert.IsFalse(structurePlacer.EvaluatePlacement(validPos, Quaternion.identity, extents, float.PositiveInfinity));
+        }
     }
 }
