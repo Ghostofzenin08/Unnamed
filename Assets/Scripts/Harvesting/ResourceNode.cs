@@ -18,6 +18,7 @@ namespace Outpost404.Harvesting
         [SerializeField] private ResourceNodeSO nodeData;
         [SerializeField] private float currentHealth;
         [SerializeField] private bool destroyOnDepletion = true;
+        [SerializeField] private bool spawnLootOnDepletion = true;
 
         [Header("Feedback Animation")]
         [SerializeField] private float wobbleDuration = 0.15f;
@@ -34,6 +35,7 @@ namespace Outpost404.Harvesting
         public float CurrentHealth => currentHealth;
         public float MaxHealth => nodeData != null ? nodeData.MaxHealth : 50f;
         public bool IsDead => isDead;
+        public bool SpawnLootOnDepletion { get => spawnLootOnDepletion; set => spawnLootOnDepletion = value; }
 
         private void Awake()
         {
@@ -57,7 +59,7 @@ namespace Outpost404.Harvesting
 
         public void TakeDamage(float amount, Vector3 hitPoint = default, Vector3 hitNormal = default)
         {
-            if (isDead || amount <= 0f) return;
+            if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHealth -= amount;
             PlayHitWobble();
@@ -70,7 +72,7 @@ namespace Outpost404.Harvesting
 
         private void PlayHitWobble()
         {
-            if (!gameObject.activeInHierarchy) return;
+            if (!Application.isPlaying || !gameObject.activeInHierarchy) return;
             if (wobbleCoroutine != null) StopCoroutine(wobbleCoroutine);
             wobbleCoroutine = StartCoroutine(DoWobble());
         }
@@ -109,7 +111,7 @@ namespace Outpost404.Harvesting
 
         public void SpawnLoot()
         {
-            if (nodeData == null || nodeData.DropItem == null) return;
+            if (!spawnLootOnDepletion || nodeData == null || nodeData.DropItem == null) return;
 
             int count = UnityEngine.Random.Range(nodeData.MinDropCount, nodeData.MaxDropCount + 1);
 
