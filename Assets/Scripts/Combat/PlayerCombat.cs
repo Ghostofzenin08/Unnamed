@@ -26,6 +26,7 @@ namespace Outpost404.Combat
 
         private float lastAttackTime = -99f;
         private PlayerStats playerStats;
+        private Outpost404.Inventory.InventorySystem inventory;
 
         public event Action OnAttackExecuted;
         public event Action<IDamageable, float> OnTargetHit;
@@ -33,6 +34,42 @@ namespace Outpost404.Combat
         public float AttackDamage { get => attackDamage; set => attackDamage = Mathf.Max(0f, value); }
         public float AttackCooldown { get => attackCooldown; set => attackCooldown = Mathf.Max(0.05f, value); }
         public float StaminaCost { get => staminaCost; set => staminaCost = Mathf.Max(0f, value); }
+        public Outpost404.Inventory.InventorySystem Inventory
+        {
+            get
+            {
+                if (inventory == null) inventory = GetComponent<Outpost404.Inventory.InventorySystem>();
+                return inventory;
+            }
+            set => inventory = value;
+        }
+
+        /// <summary>
+        /// Computes effective damage against target, applying tool harvest multipliers if striking resource nodes.
+        /// </summary>
+        public float GetDamageAgainst(IDamageable target)
+        {
+            float damage = attackDamage;
+            if (target is Outpost404.Harvesting.ResourceNode)
+            {
+                float mult = 1.0f;
+                var inv = Inventory;
+                if (inv != null && inv.Slots != null)
+                {
+                    for (int s = 0; s < inv.Slots.Count; s++)
+                    {
+                        var slot = inv.Slots[s];
+                        if (!slot.IsEmpty && slot.item != null && slot.item.HarvestMultiplier > mult)
+                        {
+                            mult = slot.item.HarvestMultiplier;
+                        }
+                    }
+                }
+                damage *= mult;
+            }
+            return damage;
+        }
+
         public PlayerStats TargetStats
         {
             get
@@ -137,8 +174,9 @@ namespace Outpost404.Combat
                 if (damageable != null && !damageable.IsDead && hitEntities.Add(damageable))
                 {
                     Vector3 closestPoint = hits[i].ClosestPoint(hitCenter);
-                    damageable.TakeDamage(attackDamage, closestPoint, -transform.forward);
-                    OnTargetHit?.Invoke(damageable, attackDamage);
+                    float damageToDeal = GetDamageAgainst(damageable);
+                    damageable.TakeDamage(damageToDeal, closestPoint, -transform.forward);
+                    OnTargetHit?.Invoke(damageable, damageToDeal);
                     targetsHit++;
                 }
             }
