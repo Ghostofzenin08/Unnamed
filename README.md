@@ -29,7 +29,7 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), crafting recipes (`RecipeSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
 * **Base Building & Holograms**: Real-time holographic ghost placement system with clearance collision detection, rotation snapping, and defensive/environmental structures (`BuildableStructure`)
 * **Custom 3D Art Pipeline**: Full 11-asset pipeline (Orbital Astronaut, Predator Beast, Alien Timber Tree, Mineral Boulder, Scrap Hull, Ration Packs, Shrub flora) imported via glTFast
-* **Verification Suite**: 72 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Asset Validation, and Scene Wiring with 100% pass rate in Unity Test Runner
+* **Verification Suite**: 79 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Asset Validation, and Scene Wiring with 100% pass rate in Unity Test Runner
 
 ---
 
@@ -76,7 +76,7 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 | **Interact / Harvest** | `E` | `Button South` / `A` | Collect nearby dropped items and harvest/interact with resource nodes |
 | **Quick Eat / Consume** | `Q` | `D-Pad Up` | Consumes available food/rations from inventory to restore hunger & health |
 | **Fabricator / Crafting**| `Tab` / `C` | `Select` / `Touchpad` | Toggles the Field Crafting terminal window |
-| **Rotate Hologram** | `R` | `Shoulder Buttons` | Rotates the holographic build ghost by 45° |
+| **Rotate Hologram** | `R` / `Mouse Wheel` | `Shoulder Buttons` | Rotates the holographic build ghost by 45° |
 | **Confirm Placement** | `Left Mouse Button` | `Button South` / `A` | Constructs the active structure if placement area is clear |
 | **Cancel Placement** | `Right Mouse Button` / `Esc` | `Button East` / `B` | Cancels holographic placement mode and destroys ghost |
 | **Camera Follow**| Automated | Automated | SmoothDamp follow with yaw-aware orbit and pitch framing |
@@ -135,7 +135,7 @@ unity cmd "test run"
 * **Inventory System**: 11 tests
 * **Resource Harvesting**: 6 tests
 * **Enemy AI & Combat**: 10 tests
-* **Crafting & Base Building**: 17 tests
+* **Crafting & Base Building**: 24 tests
 * **Staged 3D Asset Import Pipeline**: 1 test
 * **Scene Integration & Wiring**: 5 tests
-* **Total**: 72 passed / 0 failed (100% pass rate)
+* **Total**: 79 passed / 0 failed (100% pass rate)
