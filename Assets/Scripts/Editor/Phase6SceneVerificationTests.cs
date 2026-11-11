@@ -39,7 +39,8 @@ namespace Outpost404.Tests
 
             Assert.IsNotNull(player.GetComponent<PlayerController>(), "Player must have PlayerController.");
             Assert.IsNotNull(player.GetComponent<PlayerStats>(), "Player must have PlayerStats.");
-            Assert.IsNotNull(player.GetComponent<PlayerCombat>(), "Player must have PlayerCombat.");
+            var pCombat = player.GetComponent<PlayerCombat>();
+            Assert.IsNotNull(pCombat, "Player must have PlayerCombat.");
             Assert.IsNotNull(player.GetComponent<PlayerInteraction>(), "Player must have PlayerInteraction.");
 
             var inv = player.GetComponent<InventorySystem>();
@@ -54,6 +55,7 @@ namespace Outpost404.Tests
             Assert.IsNotNull(placer, "Player must have StructurePlacer.");
             Assert.IsNotNull(placer.ValidHologramMaterial, "StructurePlacer must have valid hologram material assigned.");
             Assert.IsNotNull(placer.BlockedHologramMaterial, "StructurePlacer must have blocked hologram material assigned.");
+            Assert.AreEqual(placer, pCombat.TargetStructurePlacer, "PlayerCombat must reference StructurePlacer to inhibit attacks while placing.");
         }
 
         [Test, Order(3)]
@@ -107,6 +109,12 @@ namespace Outpost404.Tests
 
             Transform container = craftPanel.Find("RecipeContainer");
             Assert.IsNotNull(container, "Crafting_Panel must have RecipeContainer.");
+
+            var eventSystem = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            Assert.IsNotNull(eventSystem, "Scene must have EventSystem configured for interactive UI button clicks.");
+
+            var meatPickup = GameObject.Find("Pickup_BeastMeat_1");
+            Assert.IsNotNull(meatPickup, "Scene must contain 3D Beast Meat pickup to ensure all 11 staged assets are active in world.");
         }
     }
 }
