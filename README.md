@@ -26,8 +26,10 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * **Navigation**: AI NavMesh navigation geometry with carved dynamic obstacles for harvestable trees and rocks
 * **Combat & Damage**: Unified `IDamageable` interface shared across Player vitals, Enemy AI beasts, and Harvestable World Nodes
 * **AI Architecture**: NavMeshAgent Finite State Machine (`Patrol` -> `Chase` -> `Attack` -> `Dead`) with line of sight and radius awareness
-* **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
-* **Verification Suite**: 49 automated EditMode NUnit tests (Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM) with 100% pass rate in Unity Test Runner
+* **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), crafting recipes (`RecipeSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
+* **Base Building & Holograms**: Real-time holographic ghost placement system with clearance collision detection, rotation snapping, and defensive/environmental structures (`BuildableStructure`)
+* **Custom 3D Art Pipeline**: Full 11-asset pipeline (Orbital Astronaut, Predator Beast, Alien Timber Tree, Mineral Boulder, Scrap Hull, Ration Packs, Shrub flora) imported via glTFast
+* **Verification Suite**: 72 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Asset Validation, and Scene Wiring with 100% pass rate in Unity Test Runner
 
 ---
 
@@ -54,6 +56,12 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
   - `EnemyController`: NavMeshAgent FSM (`Patrol`, `Chase`, `Attack`, `Dead`) with attack cooldowns and drop loot
   - `PlayerCombat`: Forward melee swing attack with stamina cost, attack cooldown, and `IDamageable` sphere overlap detection
   - Complete integration in `SampleScene.unity` with active player, enemies, nodes, and UI
+- [x] **Phase 6: Crafting, Base Building & 3D Asset Integration**
+  - `RecipeSO` & `CraftingManager`: Multi-ingredient validation, inventory consumption, and yield generation
+  - Core recipes: Reinforced Wood Barricade (durability barrier), Pulse Heat Beacon (AoE healing safe zone), Makeshift Tool Axe (2x harvesting multiplier)
+  - `BuildableStructure` & `StructurePlacer`: Real-time holographic ghost placement, ground raycasting, collision clearance check, rotation snapping
+  - `CraftingUI`: Screen-space terminal UI window toggled via `Tab` or `C`, live ingredient stock counters, and one-click construct triggers
+  - Custom 3D Art Pipeline: Integrated all 11 staged assets into `SampleScene.unity` (Orbital Astronaut, Predator Beast, Timber Tree, Mineral Boulder, Scrap Hull, Bio-Rations, Timber Logs, Conductive Ore, Alien Meat, Organic Shrubs)
 
 ---
 
@@ -67,6 +75,10 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 | **Melee Attack** | `Left Mouse Button` | `Button West` / `X` | Melee swing attack; consumes stamina, damages enemies and resource nodes |
 | **Interact / Harvest** | `E` | `Button South` / `A` | Collect nearby dropped items and harvest/interact with resource nodes |
 | **Quick Eat / Consume** | `Q` | `D-Pad Up` | Consumes available food/rations from inventory to restore hunger & health |
+| **Fabricator / Crafting**| `Tab` / `C` | `Select` / `Touchpad` | Toggles the Field Crafting terminal window |
+| **Rotate Hologram** | `R` | `Shoulder Buttons` | Rotates the holographic build ghost by 45° |
+| **Confirm Placement** | `Left Mouse Button` | `Button South` / `A` | Constructs the active structure if placement area is clear |
+| **Cancel Placement** | `Right Mouse Button` / `Esc` | `Button East` / `B` | Cancels holographic placement mode and destroys ghost |
 | **Camera Follow**| Automated | Automated | SmoothDamp follow with yaw-aware orbit and pitch framing |
 
 ---
@@ -74,32 +86,41 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 ## 5. Hierarchy & Component Setup
 
 ### Player (`GameObject: Player`)
-* `Transform` (Position: 0, 1, -10)
+* `Transform` (Position: 0, 0.05, -10)
 * `CapsuleCollider` (Height: 2, Radius: 0.5)
 * `Rigidbody` (Interpolate: On, CollisionDetection: Continuous, FreezeRotation: X & Z)
+* `Visual_OrbitalAstronaut`: Instantiated 3D astronaut model with suit and helmet
 * `PlayerController`: Locomotion & cursor aiming
 * `PlayerStats`: Health (100), Stamina (100), Hunger (100), sprint check
-* `PlayerCombat`: Attack Damage (25), Cooldown (0.45s), Stamina Cost (12), Range (1.6m)
-* `PlayerInteraction`: Interact Radius (2.5m), Interact Key (E), Quick Eat Key (Q)
-* `InventorySystem`: 16 slots with item stacking and food consumption
+* `PlayerCombat`: Attack Damage (25), Cooldown (0.45s), Stamina Cost (12), Range (1.6m), Tool multiplier support
+* `PlayerInteraction`: Interact Radius (2.5m), Interact Key (E), Quick Eat Key (Q), Tool multiplier support
+* `InventorySystem`: 16 slots with item stacking, food consumption, and equipment support
+* `CraftingManager`: Recipe registry, ingredient deduction, output yielding
+* `StructurePlacer`: Holographic ghost preview, distance checking, collision clearance, structure instantiation
 
 ### UI HUD (`GameObject: HUD_Canvas`)
 * `Canvas` (Screen Space - Overlay)
 * `CanvasScaler` (Scale With Screen Size, 1920x1080)
 * `GraphicRaycaster`
 * `SurvivalHUD`: Subscribes to `PlayerStats` events; drives Health, Stamina, Hunger sliders, starvation warning, and death banners
+* `CraftingUI`: Drives `Crafting_Panel`, binds recipes to cards, triggers crafting and holographic placement
+* `Crafting_Panel`: Header, container, scroll layout
 
 ### Harvestable Nodes (`GameObject: Tree_Alien_*` / `Rock_Pulse_*`)
-* Visual mesh (Trunk & Canopy / Basalt rock body)
+* Visual 3D mesh (`Visual_AlienTimberTree` / `Visual_MineralBoulder`)
 * `Collider` (Capsule / Box)
 * `ResourceNode`: Implements `IDamageable`; wobble animation on hit; spawns drops on depletion
 * `NavMeshObstacle`: Carving enabled to dynamically cut NavMesh
 
 ### Enemy Predator (`GameObject: Enemy_Prowler_*`)
-* Visual mesh (Capsule with head crest)
+* Visual 3D mesh (`Visual_AlienPredatorBeast`)
 * `Collider` (Capsule)
 * `NavMeshAgent`: Speed 2.6 - 4.8, acceleration 16, stopping distance 1.2
 * `EnemyController`: Implements `IDamageable`; FSM transitions: Patrol, Chase, Attack, Die
+
+### Buildable Structures (`Assets/Prefabs/Structures/`)
+* `Prefab_Barricade`: `BuildableStructure` (150 Durability), `BoxCollider`, `NavMeshObstacle` (Carving: On)
+* `Prefab_HeatBeacon`: `BuildableStructure` (120 Durability), 5.5m Aura Radius, 5 HP/s Regen, Point Light, `NavMeshObstacle`
 
 ---
 
@@ -114,4 +135,7 @@ unity cmd "test run"
 * **Inventory System**: 11 tests
 * **Resource Harvesting**: 6 tests
 * **Enemy AI & Combat**: 10 tests
-* **Total**: 49 passed / 0 failed (100% pass rate)
+* **Crafting & Base Building**: 17 tests
+* **Staged 3D Asset Import Pipeline**: 1 test
+* **Scene Integration & Wiring**: 5 tests
+* **Total**: 72 passed / 0 failed (100% pass rate)
