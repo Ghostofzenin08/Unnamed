@@ -150,5 +150,46 @@ namespace Outpost404.Tests
             bool attacked = combat.TryAttack();
             Assert.IsFalse(attacked);
         }
+
+        [Test]
+        public void PlayerCombat_MultiColliderTarget_DamagesOnlyOncePerSwing()
+        {
+            var combat = playerObj.AddComponent<PlayerCombat>();
+            combat.AttackDamage = 20f;
+            combat.StaminaCost = 10f;
+
+            // Add child colliders to test compound collider deduplication
+            GameObject childPart1 = new GameObject("ChildPart1");
+            childPart1.transform.SetParent(enemyObj.transform, false);
+            childPart1.AddComponent<BoxCollider>();
+
+            GameObject childPart2 = new GameObject("ChildPart2");
+            childPart2.transform.SetParent(enemyObj.transform, false);
+            childPart2.AddComponent<SphereCollider>();
+
+            enemyObj.transform.position = playerObj.transform.position + (playerObj.transform.forward * 1.0f);
+            float initialHealth = enemy.CurrentHealth;
+
+            combat.TryAttack();
+
+            // Must only take 20 damage, not 60 (3x hits)
+            Assert.AreEqual(initialHealth - 20f, enemy.CurrentHealth, 0.01f);
+        }
+
+        [Test]
+        public void EnemyFSM_DeadPlayer_TransitionsBackToPatrolAndStopsAttacking()
+        {
+            enemyObj.transform.position = Vector3.zero;
+            playerObj.transform.position = new Vector3(1.0f, 0f, 0f);
+            enemy.TransitionTo(EnemyState.Attack);
+
+            // Kill player
+            playerStats.TakeDamage(200f);
+            Assert.IsTrue(playerStats.IsDead);
+
+            enemy.TickFSM(0.1f);
+
+            Assert.AreEqual(EnemyState.Patrol, enemy.CurrentState, "Enemy must disengage to Patrol when target player is dead.");
+        }
     }
 }
