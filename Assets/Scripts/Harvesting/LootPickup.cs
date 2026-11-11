@@ -61,14 +61,10 @@ namespace Outpost404.Harvesting
             var renderer = GetComponentInChildren<MeshRenderer>();
             if (renderer != null)
             {
-                if (Application.isPlaying)
-                {
-                    if (renderer.material != null) renderer.material.color = itemData.ItemColor;
-                }
-                else
-                {
-                    if (renderer.sharedMaterial != null) renderer.sharedMaterial.color = itemData.ItemColor;
-                }
+                MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propBlock);
+                propBlock.SetColor("_Color", itemData.ItemColor);
+                renderer.SetPropertyBlock(propBlock);
             }
         }
 
@@ -107,7 +103,7 @@ namespace Outpost404.Harvesting
                 else
                 {
                     quantity = remaining;
-                    return false;
+                    return true;
                 }
             }
             return false;
