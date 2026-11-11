@@ -43,6 +43,7 @@ namespace Outpost404.Player
 
         // Cached physics and state references
         private Rigidbody rb;
+        private Outpost404.Survival.PlayerStats playerStats;
         private Vector2 rawInput;
         private Vector3 targetMoveVelocity;
         private Vector3 currentVelocity;
@@ -62,6 +63,7 @@ namespace Outpost404.Player
         private void Awake()
         {
             if (rb == null) rb = GetComponent<Rigidbody>();
+            if (playerStats == null) playerStats = GetComponent<Outpost404.Survival.PlayerStats>();
             ConfigureRigidbody();
 
             if (mainCamera == null)
@@ -147,7 +149,15 @@ namespace Outpost404.Player
                 rawInput.Normalize();
             }
 
-            isSprinting = sprintPressed;
+            if (playerStats != null && playerStats.IsDead)
+            {
+                rawInput = Vector2.zero;
+                targetMoveVelocity = Vector3.zero;
+                isSprinting = false;
+                return;
+            }
+
+            isSprinting = sprintPressed && (playerStats == null || playerStats.CanSprint);
             float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f);
 
             // World-space horizontal velocity target
