@@ -34,7 +34,7 @@ namespace Outpost404.AI
         [SerializeField] private int maxDropCount = 3;
 
         public string EnemyName { get => enemyName; set => enemyName = value; }
-        public float MaxHealth { get => maxHealth; set => maxHealth = Mathf.Max(1f, value); }
+        public float MaxHealth { get => Mathf.Max(1f, maxHealth); set => maxHealth = Mathf.Max(1f, value); }
         public float PatrolSpeed { get => patrolSpeed; set => patrolSpeed = value; }
         public float ChaseSpeed { get => chaseSpeed; set => chaseSpeed = value; }
         public float PatrolRadius { get => patrolRadius; set => patrolRadius = value; }
@@ -45,7 +45,7 @@ namespace Outpost404.AI
         public float AttackDamage { get => attackDamage; set => attackDamage = value; }
         public float AttackCooldown { get => attackCooldown; set => attackCooldown = value; }
         public ItemDataSO DropItem { get => dropItem; set => dropItem = value; }
-        public int MinDropCount { get => minDropCount; set => minDropCount = value; }
-        public int MaxDropCount { get => maxDropCount; set => maxDropCount = value; }
+        public int MinDropCount { get => Mathf.Max(1, minDropCount); set => minDropCount = Mathf.Max(1, value); }
+        public int MaxDropCount { get => Mathf.Max(MinDropCount, maxDropCount); set => maxDropCount = Mathf.Max(MinDropCount, value); }
     }
 }
