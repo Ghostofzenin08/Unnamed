@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 279712bc75c55f1429579914e61a2162, type: 3}
+  m_Name: Item_Wood
+  m_EditorClassIdentifier: 
+  itemId: Item_Wood
+  itemName: Composite Timber
+  description: Harvested structural alien wood.
+  itemType: 0
+  maxStack: 64
+  caloricValue: 0
+  healValue: 0
+  itemColor: {r: 0.62, g: 0.42, b: 0.22, a: 1}
