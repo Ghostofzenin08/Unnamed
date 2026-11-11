@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -113,6 +114,7 @@ namespace Outpost404.Combat
             Vector3 hitCenter = transform.position + (transform.forward * attackRange) + (Vector3.up * 0.5f);
             Collider[] hits = Physics.OverlapSphere(hitCenter, attackRadius, hitLayers, QueryTriggerInteraction.Ignore);
 
+            HashSet<IDamageable> hitEntities = new HashSet<IDamageable>();
             int targetsHit = 0;
             for (int i = 0; i < hits.Length; i++)
             {
@@ -132,7 +134,7 @@ namespace Outpost404.Combat
                     damageable = hits[i].GetComponentInParent<IDamageable>();
                 }
 
-                if (damageable != null && !damageable.IsDead)
+                if (damageable != null && !damageable.IsDead && hitEntities.Add(damageable))
                 {
                     Vector3 closestPoint = hits[i].ClosestPoint(hitCenter);
                     damageable.TakeDamage(attackDamage, closestPoint, -transform.forward);
