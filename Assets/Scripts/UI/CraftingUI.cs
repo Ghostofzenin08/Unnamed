@@ -72,7 +72,19 @@ namespace Outpost404.UI
 
         private void Update()
         {
+            // Close terminal if player dies
+            if (inventory != null)
+            {
+                var stats = inventory.GetComponent<Outpost404.Survival.PlayerStats>();
+                if (stats != null && stats.IsDead)
+                {
+                    if (isOpen) SetWindowOpen(false);
+                    return;
+                }
+            }
+
             bool toggleRequested = false;
+            bool escapeRequested = false;
 
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
@@ -81,14 +93,26 @@ namespace Outpost404.UI
                 {
                     toggleRequested = true;
                 }
+                if (Keyboard.current.escapeKey.wasPressedThisFrame)
+                {
+                    escapeRequested = true;
+                }
             }
             if (Keyboard.current == null)
             {
                 toggleRequested = Input.GetKeyDown(toggleKey) || Input.GetKeyDown(altToggleKey);
+                escapeRequested = Input.GetKeyDown(KeyCode.Escape);
             }
 #else
             toggleRequested = Input.GetKeyDown(toggleKey) || Input.GetKeyDown(altToggleKey);
+            escapeRequested = Input.GetKeyDown(KeyCode.Escape);
 #endif
+
+            if (escapeRequested && isOpen)
+            {
+                SetWindowOpen(false);
+                return;
+            }
 
             if (toggleRequested)
             {
@@ -111,6 +135,8 @@ namespace Outpost404.UI
 
             if (isOpen)
             {
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
                 RefreshRecipeList();
             }
         }
