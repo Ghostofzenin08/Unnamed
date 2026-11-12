@@ -155,6 +155,12 @@ namespace Outpost404.Combat
             lastAttackTime = Time.time;
             OnAttackExecuted?.Invoke();
 
+            // Combat Juice: Melee whoosh audio, subtle screen shake, and visual slash arc
+            Outpost404.Audio.AudioManager.Instance?.PlayMeleeWhoosh();
+            var camFollow = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
+            if (camFollow != null) camFollow.TriggerShake(0.08f, 0.10f);
+            ProceduralCombatEffects.SpawnMeleeSlashArc(transform, attackRange, 110f);
+
             ExecuteHitDetection();
             return true;
         }
@@ -195,6 +201,35 @@ namespace Outpost404.Combat
                     damageable.TakeDamage(damageToDeal, closestPoint, -transform.forward);
                     OnTargetHit?.Invoke(damageable, damageToDeal);
                     targetsHit++;
+
+                    // Combat Juice: Impact sound, impact particles, and target hit screen shake
+                    Outpost404.Audio.ImpactType impactType = Outpost404.Audio.ImpactType.Default;
+                    if (damageable is Outpost404.Harvesting.ResourceNode resNode)
+                    {
+                        string nodeName = resNode.NodeData != null ? resNode.NodeData.NodeName : resNode.name;
+                        impactType = (nodeName.IndexOf("Rock", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      nodeName.IndexOf("Ore", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      nodeName.IndexOf("Mineral", StringComparison.OrdinalIgnoreCase) >= 0)
+                            ? Outpost404.Audio.ImpactType.Rock
+                            : Outpost404.Audio.ImpactType.Timber;
+                    }
+                    else if (damageable is Outpost404.AI.EnemyController)
+                    {
+                        impactType = Outpost404.Audio.ImpactType.Enemy;
+                    }
+                    else if (damageable is Outpost404.Building.BuildableStructure)
+                    {
+                        impactType = Outpost404.Audio.ImpactType.Structure;
+                    }
+
+                    Outpost404.Audio.AudioManager.Instance?.PlayImpact(impactType);
+                    ProceduralCombatEffects.SpawnImpactParticles(closestPoint, -transform.forward, impactType);
+
+                    var cam = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
+                    if (cam != null)
+                    {
+                        cam.TriggerShake(0.20f, 0.14f);
+                    }
                 }
             }
 
