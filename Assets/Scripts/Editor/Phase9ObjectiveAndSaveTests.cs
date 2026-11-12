@@ -175,6 +175,12 @@ namespace Outpost404.Tests
             // Assert pivot is aligned to ground (elevated by ~0.95m so feet rest on terrain at local Y=0)
             Assert.GreaterOrEqual(astronautVis.localPosition.y, 0.85f, "Astronaut localPosition Y must be elevated to align feet with ground.");
             Assert.AreEqual(1.9f, astronautVis.localScale.y, 0.05f, "Astronaut scale must be approximately 1.9m height.");
+
+            // Assert CapsuleCollider center stands cleanly on ground
+            var pCol = player.GetComponent<CapsuleCollider>();
+            Assert.IsNotNull(pCol, "Player must have CapsuleCollider.");
+            Assert.AreEqual(1.0f, pCol.center.y, 0.05f, "CapsuleCollider center Y must be 1.0m to stand on ground.");
+            Assert.AreEqual(2.0f, pCol.height, 0.05f, "CapsuleCollider height must be 2.0m.");
         }
 
         [Test, Order(3)]
@@ -227,7 +233,10 @@ namespace Outpost404.Tests
             // 4. Sector Alpha SOS Beacon & Wreckage
             var beacon = env.transform.Find("Beacon_SOS_Terminal");
             Assert.IsNotNull(beacon, "Beacon_SOS_Terminal must exist in Sector Alpha.");
-            Assert.IsNotNull(beacon.GetComponent<BeaconObjective>(), "Beacon_SOS_Terminal must have BeaconObjective component.");
+            var beaconLogic = beacon.GetComponent<BeaconObjective>();
+            Assert.IsNotNull(beaconLogic, "Beacon_SOS_Terminal must have BeaconObjective component.");
+            Assert.IsNotNull(beaconLogic.EnemyPrefab, "BeaconObjective must have enemyPrefab configured for surge defense.");
+            Assert.GreaterOrEqual(beaconLogic.HordeSpawnPoints.Count, 4, "BeaconObjective must have at least 4 horde spawn points configured.");
 
             var wreckage = env.transform.Find("Pod_Wreckage_Crashed");
             Assert.IsNotNull(wreckage, "Pod_Wreckage_Crashed must exist in Sector Alpha.");
@@ -254,8 +263,14 @@ namespace Outpost404.Tests
                 Renderer[] r = vis.GetComponentsInChildren<Renderer>(true);
                 Assert.Greater(r.Length, 0, $"AlienPredatorBeast visual on '{enemy.name}' must contain active Renderers.");
 
+                // Assert authentic character height around 1.8m-2.0m (scale 4.8 yields ~1.82m height)
+                Assert.AreEqual(4.8f, vis.localScale.y, 0.2f, "Beast visual scale must yield authentic 1.8m-2.0m height.");
                 // Assert paws elevated above ground
-                Assert.GreaterOrEqual(vis.localPosition.y, 0.40f, "Beast visual localPosition Y must be elevated to align paws to ground.");
+                Assert.GreaterOrEqual(vis.localPosition.y, 0.85f, "Beast visual localPosition Y must be elevated to align paws to ground.");
+
+                // Assert authentic M_EnemyProwler material
+                Assert.IsNotNull(r[0].sharedMaterial, "Beast renderer must have a valid sharedMaterial.");
+                Assert.AreEqual("M_EnemyProwler", r[0].sharedMaterial.name, "Beast renderer must use authentic M_EnemyProwler material.");
             }
         }
 
@@ -557,6 +572,67 @@ namespace Outpost404.Tests
             Assert.IsTrue(report.Contains("Enemies Slain: 11"));
             Assert.IsTrue(report.Contains("Resources Harvested: 28"));
             Assert.IsTrue(report.Contains("Structures Built: 6"));
+        }
+
+        [Test]
+        public void EnemyController_ApplyExtractionSurge_RelentlesslyPursuesTargetWithoutDroppingOut()
+        {
+            var enemyObj = new GameObject("Test_Enemy_Surge");
+            enemyObj.transform.SetParent(testRoot.transform);
+            enemyObj.AddComponent<CapsuleCollider>();
+            var ctrl = enemyObj.AddComponent<EnemyController>();
+
+            var statsSO = ScriptableObject.CreateInstance<EnemyStatsSO>();
+            statsSO.MaxHealth = 50f;
+            statsSO.ChaseSpeed = 4.0f;
+            statsSO.DetectionRadius = 10f;
+            statsSO.LoseSightRadius = 12f;
+            statsSO.AttackRange = 1.5f;
+            ctrl.Configure(statsSO);
+
+            // Initially in Patrol state
+            Assert.AreEqual(EnemyState.Patrol, ctrl.CurrentState);
+
+            // Beacon positioned far away (60 meters)
+            var beaconObj = new GameObject("Test_Beacon_Target");
+            beaconObj.transform.SetParent(testRoot.transform);
+            beaconObj.transform.position = new Vector3(60f, 0f, 0f);
+
+            // Trigger extraction surge
+            ctrl.ApplyExtractionSurge(beaconObj.transform, playerStats.transform);
+
+            Assert.IsTrue(ctrl.IsExtractionSurge, "Enemy must be flagged in extraction surge.");
+            Assert.IsTrue(ctrl.IsNightSurgeActive, "Night surge multipliers must be active.");
+            Assert.AreEqual(EnemyState.Chase, ctrl.CurrentState, "Enemy must immediately enter Chase state upon extraction surge.");
+
+            // Place player far outside detection & lose sight radius (50m away)
+            playerStats.transform.position = new Vector3(50f, 0f, 0f);
+            ctrl.TickFSM(0.1f);
+
+            // Enemy must NOT drop out to Patrol because isExtractionSurge is active
+            Assert.AreEqual(EnemyState.Chase, ctrl.CurrentState, "Surging enemy must NOT drop out of Chase to Patrol despite extreme distance.");
+        }
+
+        [Test]
+        public void SaveSystem_QuickSave_PlayerDead_PreventsSaving()
+        {
+            string testPath = Path.Combine(Application.persistentDataPath, "dead_save_test.json");
+            try
+            {
+                if (File.Exists(testPath)) File.Delete(testPath);
+
+                // Inflict fatal damage to kill player
+                playerStats.TakeDamage(999f);
+                Assert.IsTrue(playerStats.IsDead, "Player must be dead.");
+
+                bool saved = saveSystem.SaveGame(testPath);
+                Assert.IsFalse(saved, "SaveGame must reject saving when player life support is dead.");
+                Assert.IsFalse(File.Exists(testPath), "Save file must not be created when player is dead.");
+            }
+            finally
+            {
+                if (File.Exists(testPath)) File.Delete(testPath);
+            }
         }
     }
 }
