@@ -196,6 +196,14 @@ namespace Outpost404.Building
             isDead = true;
             currentDurability = 0f;
 
+            // Combat Juice: Heavy screen shake and demolition audio on structure destruction
+            var cam = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
+            if (cam != null)
+            {
+                cam.TriggerShake(0.40f, 0.25f);
+            }
+            Outpost404.Audio.AudioManager.Instance?.PlayImpact(Outpost404.Audio.ImpactType.Structure, 1.25f);
+
             OnStructureDestroyed?.Invoke(this);
 
             var obstacle = GetComponent<NavMeshObstacle>();
