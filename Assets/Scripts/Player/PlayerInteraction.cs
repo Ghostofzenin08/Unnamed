@@ -139,6 +139,30 @@ namespace Outpost404.Player
                     Vector3 closestPoint = hits[i].ClosestPoint(transform.position);
                     Vector3 dir = (node.transform.position - transform.position).normalized;
                     node.TakeDamage(GetEffectiveHarvestDamage(), closestPoint, dir);
+
+                    // Combat Juice: Impact audio, particle burst, and camera shake
+                    Outpost404.Audio.ImpactType impactType = Outpost404.Audio.ImpactType.Timber;
+                    if (node.NodeData != null)
+                    {
+                        string nodeName = node.NodeData.NodeName;
+                        if (nodeName.IndexOf("Rock", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            nodeName.IndexOf("Ore", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            nodeName.IndexOf("Mineral", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            impactType = Outpost404.Audio.ImpactType.Rock;
+                        }
+                    }
+                    Outpost404.Audio.AudioManager.Instance?.PlayImpact(impactType);
+                    if (Application.isPlaying)
+                    {
+                        Outpost404.Combat.ProceduralCombatEffects.SpawnImpactParticles(closestPoint, -dir, impactType);
+                    }
+                    var cam = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
+                    if (cam != null)
+                    {
+                        cam.TriggerShake(0.18f, 0.12f);
+                    }
+
                     return true;
                 }
             }
