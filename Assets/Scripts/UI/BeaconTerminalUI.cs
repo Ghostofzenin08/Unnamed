@@ -181,8 +181,8 @@ namespace Outpost404.UI
 
                 if (requiredItemsText != null)
                 {
-                    requiredItemsText.text = $"â€¢ <color={pColor}>{pName}: {pCount}/{currentReq.primaryRequired}</color>\n" +
-                                            $"â€¢ <color={sColor}>{sName}: {sCount}/{currentReq.secondaryRequired}</color>";
+                    requiredItemsText.text = $"- <color={pColor}>{pName}: {pCount}/{currentReq.primaryRequired}</color>\n" +
+                                            $"- <color={sColor}>{sName}: {sCount}/{currentReq.secondaryRequired}</color>";
                 }
 
                 // Repair Button
@@ -204,7 +204,7 @@ namespace Outpost404.UI
                 // All stages complete
                 if (stageTitleText != null) stageTitleText.text = "ALL REPAIRS COMPLETED";
                 if (stageDescriptionText != null) stageDescriptionText.text = "Beacon dish aligned and power matrix operational. Ready to broadcast distress SOS evacuation transponder.";
-                if (requiredItemsText != null) requiredItemsText.text = "<color=#44FF44>âœ“ All systems operational. Prepare for extraction defense.</color>";
+                if (requiredItemsText != null) requiredItemsText.text = "<color=#44FF44>[READY] All systems operational. Prepare for extraction defense.</color>";
 
                 if (repairButton != null) repairButton.gameObject.SetActive(false);
 
