@@ -62,6 +62,12 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
   - `BuildableStructure` & `StructurePlacer`: Real-time holographic ghost placement, ground raycasting, collision clearance check, rotation snapping
   - `CraftingUI`: Screen-space terminal UI window toggled via `Tab` or `C`, live ingredient stock counters, and one-click construct triggers
   - Custom 3D Art Pipeline: Integrated all 11 staged assets into `SampleScene.unity` (Orbital Astronaut, Predator Beast, Timber Tree, Mineral Boulder, Scrap Hull, Bio-Rations, Timber Logs, Conductive Ore, Alien Meat, Organic Shrubs)
+- [x] **Phase 7: Day/Night Cycle & Environmental Hazards**
+  - `DayNightCycleManager`: Configurable planetary day length (120s), normalized time `[0.0, 1.0)`, 360° celestial sun rotation, diurnal color gradients, and ambient illumination
+  - Diurnal Temperature & Hypothermia: Diurnal ambient temperature curves (Warm Day +24°C, Dusk +10°C, Sub-zero Night -18°C), body cooling in freezing air, hypothermia health drain (< 32°C), critical freezing damage (< 25°C), and movement speed penalties
+  - Thermal Radiance: `BuildableStructure` Pulse Heat Beacons radiate +35°C thermal warmth in aura radius, rapidly restoring body temperature and halting frost damage
+  - Night Anomaly Surge: `EnemyController` nocturnal aggression buff during Night phase (expanded detection 12m -> 20m, +20% chase speed, +25% attack damage), smoothly reverting on Dawn
+  - HUD Clock, Weather & Thermometer: Digital military clock ("Day 1 | 14:00"), diurnal phase icon badge, ambient temperature readout, body temperature gauge slider, and active hypothermia warning banner
 
 ---
 
@@ -136,6 +142,7 @@ unity cmd "test run"
 * **Resource Harvesting**: 6 tests
 * **Enemy AI & Combat**: 10 tests
 * **Crafting & Base Building**: 24 tests
+* **Day/Night Cycle & Environmental Hazards**: 18 tests
 * **Staged 3D Asset Import Pipeline**: 1 test
-* **Scene Integration & Wiring**: 5 tests
-* **Total**: 79 passed / 0 failed (100% pass rate)
+* **Scene Integration & Wiring**: 11 tests
+* **Total**: 103 passed / 0 failed (100% pass rate)
