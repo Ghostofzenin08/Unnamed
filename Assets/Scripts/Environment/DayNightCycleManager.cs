@@ -44,6 +44,16 @@ namespace Outpost404.Environment
         [Tooltip("Maps normalized time [0, 1] to ambient temperature in Celsius.")]
         [SerializeField] private AnimationCurve temperatureCurve;
 
+        [Header("Skybox Atmosphere Transitions")]
+        [Tooltip("Stylized panoramic/cubemap skybox material for Dawn (Sunrise).")]
+        [SerializeField] private Material dawnSkyboxMaterial;
+        [Tooltip("Stylized panoramic/cubemap skybox material for Day (Full daylight).")]
+        [SerializeField] private Material daySkyboxMaterial;
+        [Tooltip("Stylized panoramic/cubemap skybox material for Dusk (Sunset).")]
+        [SerializeField] private Material duskSkyboxMaterial;
+        [Tooltip("Stylized panoramic/cubemap skybox material for Night (Starry night).")]
+        [SerializeField] private Material nightSkyboxMaterial;
+
         // Decoupled Observation Events
         public event Action<float, int> OnTimeChanged; // (normalizedTime, currentDay)
         public event Action<DayPhase> OnPhaseChanged;   // (newPhase)
@@ -60,6 +70,28 @@ namespace Outpost404.Environment
         public DayPhase CurrentPhase => currentPhase;
         public Light SunLight { get => sunLight; set => sunLight = value; }
         public float CurrentAmbientTemperature => CalculateAmbientTemperature(normalizedTime);
+
+        public Material DawnSkyboxMaterial { get => dawnSkyboxMaterial; set => dawnSkyboxMaterial = value; }
+        public Material DaySkyboxMaterial { get => daySkyboxMaterial; set => daySkyboxMaterial = value; }
+        public Material DuskSkyboxMaterial { get => duskSkyboxMaterial; set => duskSkyboxMaterial = value; }
+        public Material NightSkyboxMaterial { get => nightSkyboxMaterial; set => nightSkyboxMaterial = value; }
+
+        public Material GetSkyboxForPhase(DayPhase phase)
+        {
+            switch (phase)
+            {
+                case DayPhase.Dawn:
+                    return dawnSkyboxMaterial != null ? dawnSkyboxMaterial : daySkyboxMaterial;
+                case DayPhase.Day:
+                    return daySkyboxMaterial != null ? daySkyboxMaterial : dawnSkyboxMaterial;
+                case DayPhase.Dusk:
+                    return duskSkyboxMaterial != null ? duskSkyboxMaterial : daySkyboxMaterial;
+                case DayPhase.Night:
+                    return nightSkyboxMaterial != null ? nightSkyboxMaterial : duskSkyboxMaterial;
+                default:
+                    return daySkyboxMaterial;
+            }
+        }
 
         private void Awake()
         {
@@ -242,19 +274,32 @@ namespace Outpost404.Environment
             RenderSettings.ambientEquatorColor = currentAmbient * 0.8f;
             RenderSettings.ambientGroundColor = currentAmbient * 0.4f;
 
+            // Apply phase-specific stylized skybox material if configured
+            Material targetSkybox = GetSkyboxForPhase(currentPhase);
+            if (targetSkybox != null && RenderSettings.skybox != targetSkybox)
+            {
+                RenderSettings.skybox = targetSkybox;
+                DynamicGI.UpdateEnvironment();
+            }
+
             if (RenderSettings.skybox != null)
             {
-                if (RenderSettings.skybox.HasProperty("_Tint"))
+                // Only tint procedural skyboxes to avoid distorting stylized panoramic art
+                bool isProcedural = RenderSettings.skybox.shader != null && RenderSettings.skybox.shader.name.Contains("Procedural");
+                if (isProcedural)
                 {
-                    RenderSettings.skybox.SetColor("_Tint", currentAmbient);
-                }
-                if (RenderSettings.skybox.HasProperty("_SkyTint"))
-                {
-                    RenderSettings.skybox.SetColor("_SkyTint", currentAmbient);
-                }
-                if (RenderSettings.skybox.HasProperty("_GroundColor"))
-                {
-                    RenderSettings.skybox.SetColor("_GroundColor", currentAmbient * 0.5f);
+                    if (RenderSettings.skybox.HasProperty("_Tint"))
+                    {
+                        RenderSettings.skybox.SetColor("_Tint", currentAmbient);
+                    }
+                    if (RenderSettings.skybox.HasProperty("_SkyTint"))
+                    {
+                        RenderSettings.skybox.SetColor("_SkyTint", currentAmbient);
+                    }
+                    if (RenderSettings.skybox.HasProperty("_GroundColor"))
+                    {
+                        RenderSettings.skybox.SetColor("_GroundColor", currentAmbient * 0.5f);
+                    }
                 }
             }
         }
