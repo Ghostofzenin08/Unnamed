@@ -29,7 +29,7 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), crafting recipes (`RecipeSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
 * **Base Building & Holograms**: Real-time holographic ghost placement system with clearance collision detection, rotation snapping, and defensive/environmental structures (`BuildableStructure`)
 * **Custom 3D Art Pipeline**: Full 11-asset pipeline (Orbital Astronaut, Predator Beast, Alien Timber Tree, Mineral Boulder, Scrap Hull, Ration Packs, Shrub flora) imported via glTFast
-* **Verification Suite**: 133 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Day/Night & Environment, Audio System & Procedural Waveforms, Screen Shake & Combat Juice, and Scene Wiring with 100% pass rate in Unity Test Runner
+* **Verification Suite**: 140 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Day/Night & Environment, Audio System & Procedural Waveforms, Screen Shake & Combat Juice, and Scene Wiring with 100% pass rate in Unity Test Runner
 
 ---
 
@@ -162,7 +162,7 @@ unity cmd "test run"
 * **Crafting & Base Building**: 24 tests
 * **Day/Night Cycle & Environmental Hazards**: 23 tests
 * **Staged 3D Asset Import Pipeline**: 1 test
-* **Audio System & Procedural Waveforms**: 11 tests
-* **Screen Shake & Combat Juice**: 7 tests
-* **Scene Integration, Opener & Wiring**: 18 tests
-* **Total**: 133 passed / 0 failed (100% pass rate)
+* **Audio System & Procedural Waveforms**: 12 tests
+* **Screen Shake & Combat Juice**: 9 tests
+* **Scene Integration, Opener & Wiring**: 22 tests
+* **Total**: 140 passed / 0 failed (100% pass rate)
