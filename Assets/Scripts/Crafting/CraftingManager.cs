@@ -121,6 +121,7 @@ namespace Outpost404.Crafting
             }
 
             OnRecipeCrafted?.Invoke(recipe);
+            Outpost404.Audio.AudioManager.Instance?.PlayCraftingSuccess();
             return true;
         }
 
@@ -176,6 +177,7 @@ namespace Outpost404.Crafting
             }
 
             OnRecipeCrafted?.Invoke(recipe);
+            Outpost404.Audio.AudioManager.Instance?.PlayCraftingSuccess();
             return true;
         }
 
