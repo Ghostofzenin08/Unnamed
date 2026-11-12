@@ -50,6 +50,8 @@ namespace Outpost404.Survival
         private float staminaRegenTimer = 0f;
         private bool isDead = false;
         private bool wasHypothermic = false;
+        private float currentEffectiveAmbient = 22f;
+        private bool isNearHeatSource = false;
         private PlayerController playerController;
 
         // Decoupled observation events (current, max)
@@ -80,6 +82,8 @@ namespace Outpost404.Survival
         public float MinBodyTemperature => minBodyTemperature;
         public bool IsInHypothermia => currentBodyTemperature < hypothermiaThreshold;
         public bool IsCriticalFreezing => currentBodyTemperature < criticalFreezingThreshold;
+        public float CurrentEffectiveAmbientTemperature => currentEffectiveAmbient;
+        public bool IsNearHeatSource => isNearHeatSource;
 
         public float MovementSpeedModifier
         {
@@ -198,6 +202,9 @@ namespace Outpost404.Survival
             {
                 ambient += heatBonus;
             }
+
+            currentEffectiveAmbient = ambient;
+            isNearHeatSource = nearHeat;
 
             TickTemperature(deltaTime, ambient, nearHeat);
         }
