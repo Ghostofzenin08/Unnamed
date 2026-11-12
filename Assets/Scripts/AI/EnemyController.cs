@@ -44,6 +44,8 @@ namespace Outpost404.AI
         private int currentWaypointIndex = 0;
         private Vector3 spawnOrigin;
         private bool isDead = false;
+        private Renderer[] cachedRenderers;
+        private Coroutine hitFlashCoroutine;
 
         public event Action<EnemyState> OnStateChanged;
         public event Action OnEnemyDied;
@@ -346,6 +348,7 @@ namespace Outpost404.AI
             if (isDead || amount <= 0f || float.IsNaN(amount)) return;
 
             currentHealth -= amount;
+            PlayHitFeedback(hitNormal);
 
             // Retaliate: switch to chase if struck while idling or patrolling
             if (currentState == EnemyState.Patrol && targetPlayer != null)
@@ -357,6 +360,47 @@ namespace Outpost404.AI
             {
                 Die();
             }
+        }
+
+        public void PlayHitFeedback(Vector3 hitNormal = default)
+        {
+            if (!Application.isPlaying || !gameObject.activeInHierarchy) return;
+
+            if (hitNormal.sqrMagnitude > 0.01f && agent != null && agent.isOnNavMesh)
+            {
+                agent.Move(hitNormal.normalized * 0.22f);
+            }
+
+            if (hitFlashCoroutine != null) StopCoroutine(hitFlashCoroutine);
+            hitFlashCoroutine = StartCoroutine(DoHitFlash());
+        }
+
+        private System.Collections.IEnumerator DoHitFlash()
+        {
+            if (cachedRenderers == null || cachedRenderers.Length == 0)
+                cachedRenderers = GetComponentsInChildren<Renderer>();
+
+            MaterialPropertyBlock block = new MaterialPropertyBlock();
+            for (int i = 0; i < cachedRenderers.Length; i++)
+            {
+                if (cachedRenderers[i] != null)
+                {
+                    cachedRenderers[i].GetPropertyBlock(block);
+                    block.SetColor("_Color", new Color(1.5f, 0.4f, 0.4f, 1f));
+                    cachedRenderers[i].SetPropertyBlock(block);
+                }
+            }
+
+            yield return new WaitForSeconds(0.08f);
+
+            for (int i = 0; i < cachedRenderers.Length; i++)
+            {
+                if (cachedRenderers[i] != null)
+                {
+                    cachedRenderers[i].SetPropertyBlock(null);
+                }
+            }
+            hitFlashCoroutine = null;
         }
 
         public void Die()
