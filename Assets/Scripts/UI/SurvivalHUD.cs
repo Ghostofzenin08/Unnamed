@@ -36,7 +36,22 @@ namespace Outpost404.UI
         [SerializeField] private GameObject starvationWarningBanner;
         [SerializeField] private GameObject deathBanner;
 
+        [Header("Weather, Clock & Environmental Thermometer")]
+        [SerializeField] private Text clockText;
+        [SerializeField] private Image phaseIconImage;
+        [SerializeField] private Text ambientTempText;
+        [SerializeField] private Text bodyTempText;
+        [SerializeField] private Slider bodyTempSlider;
+        [SerializeField] private Image bodyTempFillImage;
+        [SerializeField] private GameObject frostWarningBanner;
+
         public PlayerStats TargetStats { get => targetStats; set => SetTargetStats(value); }
+        public Text ClockText => clockText;
+        public Image PhaseIconImage => phaseIconImage;
+        public Text AmbientTempText => ambientTempText;
+        public Text BodyTempText => bodyTempText;
+        public Slider BodyTempSlider => bodyTempSlider;
+        public GameObject FrostWarningBanner => frostWarningBanner;
 
         private void Start()
         {
@@ -59,6 +74,12 @@ namespace Outpost404.UI
 
             if (starvationWarningBanner != null) starvationWarningBanner.SetActive(false);
             if (deathBanner != null) deathBanner.SetActive(false);
+            if (frostWarningBanner != null) frostWarningBanner.SetActive(false);
+        }
+
+        private void Update()
+        {
+            UpdateClockAndWeatherDisplay();
         }
 
         private void ResolveFillImages()
@@ -74,6 +95,10 @@ namespace Outpost404.UI
             if (hungerFillImage == null && hungerSlider != null && hungerSlider.fillRect != null)
             {
                 hungerFillImage = hungerSlider.fillRect.GetComponent<Image>();
+            }
+            if (bodyTempFillImage == null && bodyTempSlider != null && bodyTempSlider.fillRect != null)
+            {
+                bodyTempFillImage = bodyTempSlider.fillRect.GetComponent<Image>();
             }
         }
 
@@ -99,6 +124,8 @@ namespace Outpost404.UI
             targetStats.OnHealthChanged += HandleHealthChanged;
             targetStats.OnStaminaChanged += HandleStaminaChanged;
             targetStats.OnHungerChanged += HandleHungerChanged;
+            targetStats.OnBodyTemperatureChanged += HandleBodyTemperatureChanged;
+            targetStats.OnHypothermiaStateChanged += HandleHypothermiaChanged;
             targetStats.OnPlayerDied += HandlePlayerDied;
         }
 
@@ -108,6 +135,8 @@ namespace Outpost404.UI
             targetStats.OnHealthChanged -= HandleHealthChanged;
             targetStats.OnStaminaChanged -= HandleStaminaChanged;
             targetStats.OnHungerChanged -= HandleHungerChanged;
+            targetStats.OnBodyTemperatureChanged -= HandleBodyTemperatureChanged;
+            targetStats.OnHypothermiaStateChanged -= HandleHypothermiaChanged;
             targetStats.OnPlayerDied -= HandlePlayerDied;
         }
 
@@ -163,6 +192,83 @@ namespace Outpost404.UI
             }
         }
 
+        private void HandleBodyTemperatureChanged(float temp)
+        {
+            if (bodyTempText != null)
+            {
+                bodyTempText.text = $"Body: {temp:F1}°C";
+                if (temp < (targetStats != null ? targetStats.CriticalFreezingThreshold : 25f))
+                {
+                    bodyTempText.color = new Color(0.95f, 0.25f, 0.25f);
+                }
+                else if (temp < (targetStats != null ? targetStats.HypothermiaThreshold : 32f))
+                {
+                    bodyTempText.color = new Color(0.35f, 0.85f, 1f);
+                }
+                else
+                {
+                    bodyTempText.color = new Color(0.3f, 0.95f, 0.45f);
+                }
+            }
+
+            if (bodyTempSlider != null)
+            {
+                // Visual gauge normalized between 20°C and 40°C
+                float fraction = Mathf.Clamp01((temp - 20f) / 20f);
+                bodyTempSlider.value = fraction;
+                if (bodyTempFillImage != null)
+                {
+                    bodyTempFillImage.color = temp < 32f ? new Color(0.2f, 0.75f, 1f) : new Color(1f, 0.65f, 0.2f);
+                }
+            }
+        }
+
+        private void HandleHypothermiaChanged(bool isInHypothermia)
+        {
+            if (frostWarningBanner != null)
+            {
+                frostWarningBanner.SetActive(isInHypothermia);
+            }
+        }
+
+        private void UpdateClockAndWeatherDisplay()
+        {
+            if (Outpost404.Environment.DayNightCycleManager.Instance != null)
+            {
+                var mgr = Outpost404.Environment.DayNightCycleManager.Instance;
+                if (clockText != null)
+                {
+                    clockText.text = $"{mgr.GetFormattedClockTime()} ({mgr.CurrentPhase})";
+                }
+
+                if (ambientTempText != null)
+                {
+                    float amb = mgr.CurrentAmbientTemperature;
+                    ambientTempText.text = $"Amb: {amb:F0}°C";
+                    ambientTempText.color = amb < 0f ? new Color(0.35f, 0.85f, 1f) : (amb > 20f ? new Color(1f, 0.75f, 0.3f) : Color.white);
+                }
+
+                if (phaseIconImage != null)
+                {
+                    switch (mgr.CurrentPhase)
+                    {
+                        case Outpost404.Environment.DayPhase.Dawn:
+                            phaseIconImage.color = new Color(1f, 0.75f, 0.4f);
+                            break;
+                        case Outpost404.Environment.DayPhase.Day:
+                            phaseIconImage.color = new Color(1f, 0.95f, 0.4f);
+                            break;
+                        case Outpost404.Environment.DayPhase.Dusk:
+                            phaseIconImage.color = new Color(1f, 0.5f, 0.25f);
+                            break;
+                        case Outpost404.Environment.DayPhase.Night:
+                            phaseIconImage.color = new Color(0.35f, 0.55f, 0.95f);
+                            break;
+                    }
+                }
+            }
+        }
+
         // Method for manual binding by setup tools
         public void ConfigureComponents(Slider health, Slider stamina, Slider hunger, GameObject starveBanner = null, GameObject deadBanner = null)
         {
@@ -171,6 +277,17 @@ namespace Outpost404.UI
             hungerSlider = hunger;
             starvationWarningBanner = starveBanner;
             deathBanner = deadBanner;
+            ResolveFillImages();
+        }
+
+        public void ConfigureEnvironmentalUI(Text clock, Image phaseIcon, Text ambientText, Text bodyText, Slider tempSlider, GameObject frostBanner)
+        {
+            clockText = clock;
+            phaseIconImage = phaseIcon;
+            ambientTempText = ambientText;
+            bodyTempText = bodyText;
+            bodyTempSlider = tempSlider;
+            frostWarningBanner = frostBanner;
             ResolveFillImages();
         }
     }
