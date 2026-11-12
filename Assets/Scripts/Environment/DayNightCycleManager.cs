@@ -97,7 +97,20 @@ namespace Outpost404.Environment
         {
             if (sunLight == null)
             {
-                sunLight = FindFirstObjectByType<Light>();
+                var dirObj = GameObject.Find("Directional Light");
+                if (dirObj != null) sunLight = dirObj.GetComponent<Light>();
+                if (sunLight == null)
+                {
+                    var allLights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+                    for (int i = 0; i < allLights.Length; i++)
+                    {
+                        if (allLights[i].type == LightType.Directional && (allLights[i].transform.parent == null || allLights[i].name.Contains("Directional") || allLights[i].name.Contains("Sun")))
+                        {
+                            sunLight = allLights[i];
+                            break;
+                        }
+                    }
+                }
             }
             UpdateLightingAndEnvironment();
             OnTimeChanged?.Invoke(normalizedTime, currentDay);
@@ -119,10 +132,11 @@ namespace Outpost404.Environment
             float length = Mathf.Max(0.1f, dayLengthInSeconds);
             normalizedTime += deltaTime / length;
 
-            while (normalizedTime >= 1.0f)
+            if (normalizedTime >= 1.0f)
             {
-                normalizedTime -= 1.0f;
-                currentDay++;
+                int elapsedDays = Mathf.FloorToInt(normalizedTime);
+                currentDay += elapsedDays;
+                normalizedTime -= elapsedDays;
             }
 
             CheckPhaseTransition();
@@ -216,8 +230,28 @@ namespace Outpost404.Environment
                 sunLight.intensity = sunIntensityCurve.Evaluate(normalizedTime);
             }
 
+            Color currentAmbient = ambientColorGradient.Evaluate(normalizedTime);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = ambientColorGradient.Evaluate(normalizedTime);
+            RenderSettings.ambientLight = currentAmbient;
+            RenderSettings.ambientSkyColor = currentAmbient;
+            RenderSettings.ambientEquatorColor = currentAmbient * 0.8f;
+            RenderSettings.ambientGroundColor = currentAmbient * 0.4f;
+
+            if (RenderSettings.skybox != null)
+            {
+                if (RenderSettings.skybox.HasProperty("_Tint"))
+                {
+                    RenderSettings.skybox.SetColor("_Tint", currentAmbient);
+                }
+                if (RenderSettings.skybox.HasProperty("_SkyTint"))
+                {
+                    RenderSettings.skybox.SetColor("_SkyTint", currentAmbient);
+                }
+                if (RenderSettings.skybox.HasProperty("_GroundColor"))
+                {
+                    RenderSettings.skybox.SetColor("_GroundColor", currentAmbient * 0.5f);
+                }
+            }
         }
 
         /// <summary>
@@ -233,8 +267,8 @@ namespace Outpost404.Environment
         {
             // 0.00 normalized time corresponds to 06:00 (Dawn)
             float totalHours = (normalizedTime * 24f + 6f) % 24f;
-            hours = Mathf.FloorToInt(totalHours);
-            minutes = Mathf.FloorToInt((totalHours - hours) * 60f);
+            hours = Mathf.FloorToInt(totalHours) % 24;
+            minutes = Mathf.Clamp(Mathf.FloorToInt((totalHours - Mathf.Floor(totalHours)) * 60f), 0, 59);
         }
 
         public void EnsureGradientsAndCurves()
