@@ -71,6 +71,17 @@ namespace Outpost404.Objective
         public float CountdownDuration => countdownDuration;
         public bool IsVictory => isVictory;
         public IReadOnlyList<BeaconStageRequirement> Stages => stages;
+        public GameObject EnemyPrefab { get => enemyPrefab; set => enemyPrefab = value; }
+        public List<Transform> HordeSpawnPoints => hordeSpawnPoints;
+
+        public void SetHordeConfig(GameObject prefab, List<Transform> spawnPoints)
+        {
+            enemyPrefab = prefab;
+            if (spawnPoints != null)
+            {
+                hordeSpawnPoints = new List<Transform>(spawnPoints);
+            }
+        }
 
         private void Awake()
         {
@@ -228,13 +239,17 @@ namespace Outpost404.Objective
         {
             if (!Application.isPlaying) return;
 
+            Transform playerT = null;
+            var playerObj = GameObject.FindWithTag("Player");
+            if (playerObj != null) playerT = playerObj.transform;
+
             // Alert all existing enemies to enter surge state and pursue beacon/player
             var enemies = FindObjectsByType<EnemyController>(FindObjectsSortMode.None);
             for (int i = 0; i < enemies.Length; i++)
             {
                 if (enemies[i] != null && !enemies[i].IsDead)
                 {
-                    enemies[i].ApplyNightSurge(true);
+                    enemies[i].ApplyExtractionSurge(this.transform, playerT);
                 }
             }
 
@@ -246,7 +261,7 @@ namespace Outpost404.Objective
                 {
                     GameObject spawned = Instantiate(enemyPrefab, sp.position, Quaternion.identity);
                     var ctrl = spawned.GetComponent<EnemyController>();
-                    if (ctrl != null) ctrl.ApplyNightSurge(true);
+                    if (ctrl != null) ctrl.ApplyExtractionSurge(this.transform, playerT);
                 }
             }
         }
@@ -275,6 +290,7 @@ namespace Outpost404.Objective
             {
                 OnCountdownStarted?.Invoke(countdownDuration);
                 OnCountdownTick?.Invoke(countdownRemaining, countdownDuration);
+                SpawnSurgeWave();
             }
         }
 
