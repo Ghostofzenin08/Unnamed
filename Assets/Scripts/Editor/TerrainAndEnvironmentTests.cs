@@ -93,6 +93,11 @@ namespace Outpost404.Tests
             Assert.Greater(craterRimY, 2.2f, "Crater rim must rise above surrounding terrain (> 2.2m).");
             Assert.Greater(craterRimY - craterCenterY, 1.2f, "Crater rim must be significantly higher than sunken floor.");
 
+            // Verify Crater outer rim smooth continuity without abrupt cliff tears (19.5m vs 20.5m from crash center)
+            float innerBorderY = terrain.SampleHeight(new Vector3(-30f + 19.5f, 0f, -30f));
+            float outerBorderY = terrain.SampleHeight(new Vector3(-30f + 20.5f, 0f, -30f));
+            Assert.Less(Mathf.Abs(outerBorderY - innerBorderY), 0.35f, "Crater rim outer boundary must transition smoothly without vertical cliff tears.");
+
             // Verify Sector Beta: Rolling hills in Deep Timber Forest (-30, +30)
             float betaY = terrain.SampleHeight(new Vector3(-30f, 0f, 30f));
             Assert.Greater(betaY, 0.5f, "Sector Beta forest floor must have positive elevation.");
@@ -172,6 +177,29 @@ namespace Outpost404.Tests
                 float expectedSpY = TerrainY(sp.position) + 0.1f;
                 Assert.AreEqual(expectedSpY, sp.position.y, 0.05f, $"{sp.name} must rest firmly on ground.");
             }
+
+            // 7. Verify 10+ Resource Pickups grounding across sectors
+            int pickupCount = 0;
+            foreach (Transform child in env.transform)
+            {
+                if (child.name.StartsWith("Pickup_"))
+                {
+                    pickupCount++;
+                    float expectedPickupY = TerrainY(child.position) + 0.25f;
+                    Assert.AreEqual(expectedPickupY, child.position.y, 0.05f, $"{child.name} pickup must rest firmly on terrain surface.");
+                }
+            }
+            Assert.GreaterOrEqual(pickupCount, 10, "At least 10 starter resource pickups must exist grounded in scene.");
+
+            // 8. Verify Prowler Enemies grounding in Sector Delta
+            var enemiesRoot = GameObject.Find("Enemies");
+            Assert.IsNotNull(enemiesRoot, "Enemies root must exist.");
+            Assert.GreaterOrEqual(enemiesRoot.transform.childCount, 4, "At least 4 active prowlers must exist in scene.");
+            foreach (Transform enemy in enemiesRoot.transform)
+            {
+                float expectedEnemyY = TerrainY(enemy.position) + 0.05f;
+                Assert.AreEqual(expectedEnemyY, enemy.position.y, 0.05f, $"{enemy.name} prowler must rest firmly on terrain surface.");
+            }
         }
 
         [Test, Order(5)]
@@ -203,14 +231,33 @@ namespace Outpost404.Tests
             // Sample NavMesh in Sector Beta forest hills
             Vector3 betaPos = new Vector3(-20f, 0f, 20f);
             betaPos.y = terrain.SampleHeight(betaPos) + terrain.transform.position.y;
-            bool hitBeta = NavMesh.SamplePosition(betaPos, out hit, 3.0f, NavMesh.AllAreas);
-            Assert.IsTrue(hitBeta, "Sector Beta forest hills must have walkable NavMesh.");
+            NavMeshHit hitBeta;
+            bool hasHitBeta = NavMesh.SamplePosition(betaPos, out hitBeta, 3.0f, NavMesh.AllAreas);
+            Assert.IsTrue(hasHitBeta, "Sector Beta forest hills must have walkable NavMesh.");
 
             // Sample NavMesh in Sector Gamma terraces
             Vector3 gammaPos = new Vector3(20f, 0f, 20f);
             gammaPos.y = terrain.SampleHeight(gammaPos) + terrain.transform.position.y;
-            bool hitGamma = NavMesh.SamplePosition(gammaPos, out hit, 3.0f, NavMesh.AllAreas);
-            Assert.IsTrue(hitGamma, "Sector Gamma terraces must have walkable NavMesh.");
+            NavMeshHit hitGamma;
+            bool hasHitGamma = NavMesh.SamplePosition(gammaPos, out hitGamma, 3.0f, NavMesh.AllAreas);
+            Assert.IsTrue(hasHitGamma, "Sector Gamma terraces must have walkable NavMesh.");
+
+            // Sample NavMesh in Sector Delta anomaly hive
+            Vector3 deltaPos = new Vector3(20f, 0f, -20f);
+            deltaPos.y = terrain.SampleHeight(deltaPos) + terrain.transform.position.y;
+            NavMeshHit hitDelta;
+            bool hasHitDelta = NavMesh.SamplePosition(deltaPos, out hitDelta, 3.0f, NavMesh.AllAreas);
+            Assert.IsTrue(hasHitDelta, "Sector Delta anomaly hive must have walkable NavMesh.");
+
+            // Cross-sector pathfinding: Verify complete path from Sector Beta forest to Player in Sector Alpha
+            var pathBetaToPlayer = new NavMeshPath();
+            bool hasPathBeta = NavMesh.CalculatePath(hitBeta.position, player.transform.position, NavMesh.AllAreas, pathBetaToPlayer);
+            Assert.IsTrue(hasPathBeta && pathBetaToPlayer.status == NavMeshPathStatus.PathComplete, "NavMesh path from Sector Beta to Player in Sector Alpha must be PathComplete.");
+
+            // Cross-sector pathfinding: Verify complete path from Sector Delta hive to Player in Sector Alpha
+            var pathDeltaToPlayer = new NavMeshPath();
+            bool hasPathDelta = NavMesh.CalculatePath(hitDelta.position, player.transform.position, NavMesh.AllAreas, pathDeltaToPlayer);
+            Assert.IsTrue(hasPathDelta && pathDeltaToPlayer.status == NavMeshPathStatus.PathComplete, "NavMesh path from Sector Delta to Player in Sector Alpha must be PathComplete.");
         }
 
         [Test, Order(6)]
@@ -220,10 +267,12 @@ namespace Outpost404.Tests
             var dayNightManager = Object.FindFirstObjectByType<DayNightCycleManager>();
             Assert.IsNotNull(dayNightManager, "DayNightCycleManager must exist in scene.");
 
+            Assert.IsNotNull(dayNightManager.DawnSkyboxMaterial, "DawnSkyboxMaterial must be assigned.");
             Assert.IsNotNull(dayNightManager.DaySkyboxMaterial, "DaySkyboxMaterial must be assigned.");
             Assert.IsNotNull(dayNightManager.DuskSkyboxMaterial, "DuskSkyboxMaterial must be assigned.");
             Assert.IsNotNull(dayNightManager.NightSkyboxMaterial, "NightSkyboxMaterial must be assigned.");
 
+            Assert.IsTrue(dayNightManager.DawnSkyboxMaterial.name.Contains("Sunrise") || dayNightManager.DawnSkyboxMaterial.name.Contains("Dawn"), "DawnSkyboxMaterial must reference a Sunrise/Dawn skybox material.");
             Assert.IsTrue(dayNightManager.DaySkyboxMaterial.name.Contains("Day"), "DaySkyboxMaterial must reference a Day skybox material.");
             Assert.IsTrue(dayNightManager.DuskSkyboxMaterial.name.Contains("Sunset") || dayNightManager.DuskSkyboxMaterial.name.Contains("Dusk"), "DuskSkyboxMaterial must reference a Sunset/Dusk skybox material.");
             Assert.IsTrue(dayNightManager.NightSkyboxMaterial.name.Contains("Night"), "NightSkyboxMaterial must reference a Night skybox material.");
@@ -232,42 +281,58 @@ namespace Outpost404.Tests
         [Test, Order(7)]
         public void DayNightCycle_SkyboxTransitions_SwapsWithDiurnalPhases()
         {
-            var go = new GameObject("DayNightCycle_Test");
-            var manager = go.AddComponent<DayNightCycleManager>();
+            var originalSkybox = RenderSettings.skybox;
+            try
+            {
+                var go = new GameObject("DayNightCycle_Test");
+                var manager = go.AddComponent<DayNightCycleManager>();
 
-            Material dayMat = new Material(Shader.Find("Skybox/Panoramic") ?? Shader.Find("Skybox/6 Sided") ?? Shader.Find("Standard"));
-            dayMat.name = "Test_DaySky";
-            Material duskMat = new Material(dayMat);
-            duskMat.name = "Test_DuskSky";
-            Material nightMat = new Material(dayMat);
-            nightMat.name = "Test_NightSky";
+                Material baseMat = new Material(Shader.Find("Skybox/Panoramic") ?? Shader.Find("Skybox/6 Sided") ?? Shader.Find("Standard"));
+                Material dawnMat = new Material(baseMat) { name = "Test_DawnSky" };
+                Material dayMat = new Material(baseMat) { name = "Test_DaySky" };
+                Material duskMat = new Material(baseMat) { name = "Test_DuskSky" };
+                Material nightMat = new Material(baseMat) { name = "Test_NightSky" };
 
-            manager.DaySkyboxMaterial = dayMat;
-            manager.DuskSkyboxMaterial = duskMat;
-            manager.NightSkyboxMaterial = nightMat;
+                manager.DawnSkyboxMaterial = dawnMat;
+                manager.DaySkyboxMaterial = dayMat;
+                manager.DuskSkyboxMaterial = duskMat;
+                manager.NightSkyboxMaterial = nightMat;
 
-            // Test Day phase (0.25f = Noon)
-            manager.SetTime(0.25f);
-            Assert.AreEqual(DayPhase.Day, manager.CurrentPhase);
-            Assert.AreEqual(dayMat, manager.GetSkyboxForPhase(DayPhase.Day));
-            Assert.AreEqual(dayMat, RenderSettings.skybox);
+                // Test Dawn phase (0.05f = Dawn)
+                manager.SetTime(0.05f);
+                Assert.AreEqual(DayPhase.Dawn, manager.CurrentPhase);
+                Assert.AreEqual(dawnMat, manager.GetSkyboxForPhase(DayPhase.Dawn));
+                Assert.AreEqual(dawnMat, RenderSettings.skybox);
 
-            // Test Dusk phase (0.55f = Dusk)
-            manager.SetTime(0.55f);
-            Assert.AreEqual(DayPhase.Dusk, manager.CurrentPhase);
-            Assert.AreEqual(duskMat, manager.GetSkyboxForPhase(DayPhase.Dusk));
-            Assert.AreEqual(duskMat, RenderSettings.skybox);
+                // Test Day phase (0.25f = Noon)
+                manager.SetTime(0.25f);
+                Assert.AreEqual(DayPhase.Day, manager.CurrentPhase);
+                Assert.AreEqual(dayMat, manager.GetSkyboxForPhase(DayPhase.Day));
+                Assert.AreEqual(dayMat, RenderSettings.skybox);
 
-            // Test Night phase (0.75f = Midnight)
-            manager.SetTime(0.75f);
-            Assert.AreEqual(DayPhase.Night, manager.CurrentPhase);
-            Assert.AreEqual(nightMat, manager.GetSkyboxForPhase(DayPhase.Night));
-            Assert.AreEqual(nightMat, RenderSettings.skybox);
+                // Test Dusk phase (0.55f = Dusk)
+                manager.SetTime(0.55f);
+                Assert.AreEqual(DayPhase.Dusk, manager.CurrentPhase);
+                Assert.AreEqual(duskMat, manager.GetSkyboxForPhase(DayPhase.Dusk));
+                Assert.AreEqual(duskMat, RenderSettings.skybox);
 
-            Object.DestroyImmediate(go);
-            Object.DestroyImmediate(dayMat);
-            Object.DestroyImmediate(duskMat);
-            Object.DestroyImmediate(nightMat);
+                // Test Night phase (0.75f = Midnight)
+                manager.SetTime(0.75f);
+                Assert.AreEqual(DayPhase.Night, manager.CurrentPhase);
+                Assert.AreEqual(nightMat, manager.GetSkyboxForPhase(DayPhase.Night));
+                Assert.AreEqual(nightMat, RenderSettings.skybox);
+
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(baseMat);
+                Object.DestroyImmediate(dawnMat);
+                Object.DestroyImmediate(dayMat);
+                Object.DestroyImmediate(duskMat);
+                Object.DestroyImmediate(nightMat);
+            }
+            finally
+            {
+                RenderSettings.skybox = originalSkybox;
+            }
         }
     }
 }
