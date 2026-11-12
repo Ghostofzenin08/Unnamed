@@ -36,6 +36,10 @@ namespace Outpost404.AI
         [SerializeField] private float nightChaseSpeedMultiplier = 1.20f; // +20%
         [SerializeField] private float nightAttackDamageMultiplier = 1.25f; // +25%
 
+        [Header("Extraction Defense Surge")]
+        [SerializeField] private bool isExtractionSurge = false;
+        [SerializeField] private Transform beaconObjectiveTarget;
+
         private NavMeshAgent agent;
         private Collider col;
         private float currentHealth;
@@ -58,6 +62,7 @@ namespace Outpost404.AI
         public bool IsDead => isDead;
         public Transform TargetPlayer => targetPlayer;
         public bool IsNightSurgeActive => isNightSurgeActive;
+        public bool IsExtractionSurge => isExtractionSurge;
         public float CurrentDetectionRadius => (stats != null ? stats.DetectionRadius : 12f) * (isNightSurgeActive ? nightDetectionMultiplier : 1.0f);
         public float CurrentLoseSightRadius
         {
@@ -147,6 +152,28 @@ namespace Outpost404.AI
             OnNightSurgeChanged?.Invoke(isNightSurgeActive);
         }
 
+        public void ApplyExtractionSurge(Transform beacon, Transform player = null)
+        {
+            isExtractionSurge = true;
+            isNightSurgeActive = true;
+            beaconObjectiveTarget = beacon;
+            if (player != null) targetPlayer = player;
+            else FindPlayerIfNull();
+
+            TransitionTo(EnemyState.Chase);
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                agent.speed = CurrentChaseSpeed;
+                Vector3 dest = (targetPlayer != null && IsPlayerValidAndAlive())
+                    ? targetPlayer.position
+                    : (beaconObjectiveTarget != null ? beaconObjectiveTarget.position : transform.position);
+                agent.SetDestination(dest);
+            }
+
+            OnNightSurgeChanged?.Invoke(true);
+        }
+
         private void HandleDayPhaseChanged(Outpost404.Environment.DayPhase phase)
         {
             ApplyNightSurge(phase == Outpost404.Environment.DayPhase.Night);
@@ -207,6 +234,12 @@ namespace Outpost404.AI
 
         private void UpdatePatrolState(float distToPlayer, float deltaTime)
         {
+            if (isExtractionSurge)
+            {
+                TransitionTo(EnemyState.Chase);
+                return;
+            }
+
             float detectRadius = CurrentDetectionRadius;
             if (IsPlayerValidAndAlive() && distToPlayer <= detectRadius)
             {
@@ -267,10 +300,27 @@ namespace Outpost404.AI
             float attackRange = stats != null ? stats.AttackRange : 1.8f;
             float loseRadius = CurrentLoseSightRadius;
 
-            if (!IsPlayerValidAndAlive() || distToPlayer > loseRadius)
+            if (!isExtractionSurge)
             {
-                TransitionTo(EnemyState.Patrol);
-                return;
+                if (!IsPlayerValidAndAlive() || distToPlayer > loseRadius)
+                {
+                    TransitionTo(EnemyState.Patrol);
+                    return;
+                }
+            }
+            else
+            {
+                // In extraction surge: if player is dead, continue tracking beacon
+                if (!IsPlayerValidAndAlive())
+                {
+                    if (beaconObjectiveTarget != null && agent != null && agent.isOnNavMesh)
+                    {
+                        agent.isStopped = false;
+                        agent.speed = CurrentChaseSpeed;
+                        agent.SetDestination(beaconObjectiveTarget.position);
+                    }
+                    return;
+                }
             }
 
             if (distToPlayer <= attackRange)
@@ -283,7 +333,10 @@ namespace Outpost404.AI
             {
                 agent.isStopped = false;
                 agent.speed = CurrentChaseSpeed;
-                agent.SetDestination(targetPlayer.position);
+                Vector3 destination = (targetPlayer != null && IsPlayerValidAndAlive())
+                    ? targetPlayer.position
+                    : (beaconObjectiveTarget != null ? beaconObjectiveTarget.position : transform.position);
+                agent.SetDestination(destination);
             }
         }
 
