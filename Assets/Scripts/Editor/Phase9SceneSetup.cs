@@ -427,8 +427,8 @@ namespace Outpost404.EditorTools
                 }
             }
 
-            // 10. Re-bake NavMesh across the entire 120m x 120m expanded terrain
-            BakeNavMesh();
+            // 10. Build sculpted native Unity Terrain, splatmaps, skybox transitions, and align entities
+            TerrainAndEnvironmentSetup.BuildSculptedTerrainAndEnvironment();
 
             // 11. Mark scene dirty and save
             EditorSceneManager.MarkSceneDirty(scene);
