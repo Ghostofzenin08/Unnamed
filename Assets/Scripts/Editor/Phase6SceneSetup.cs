@@ -496,7 +496,14 @@ namespace Outpost404.EditorTools
         {
             string path = "Assets/Prefabs/Structures/Prefab_HeatBeacon.prefab";
             GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (existing != null) return existing;
+            if (existing != null)
+            {
+                var existingStructure = existing.GetComponent<BuildableStructure>();
+                if (existingStructure != null && existingStructure.Type == StructureType.HeatBeacon && existingStructure.ThermalWarmthBonus >= 30f)
+                {
+                    return existing;
+                }
+            }
 
             GameObject root = new GameObject("Prefab_HeatBeacon");
             if (oreModel != null)
@@ -534,10 +541,12 @@ namespace Outpost404.EditorTools
             col.radius = 0.7f;
 
             var buildable = root.AddComponent<BuildableStructure>();
+            buildable.Type = StructureType.HeatBeacon;
             buildable.StructureName = "Pulse Heat Beacon";
             buildable.MaxDurability = 120f;
             buildable.AuraRadius = 5.5f;
             buildable.HealthRegenPerSecond = 5.0f;
+            buildable.ThermalWarmthBonus = 35.0f;
             buildable.PlacementExtents = new Vector3(0.8f, 0.8f, 0.8f);
 
             var navObstacle = root.AddComponent<NavMeshObstacle>();
