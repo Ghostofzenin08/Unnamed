@@ -258,12 +258,22 @@ namespace Outpost404.Tests
         {
             playerStats.SetCurrentBodyTemperatureDirect(37f);
             playerCtrl.SetInputOverride(Vector2.up, false);
-            float normalVelocityMagnitude = playerCtrl.CurrentMoveDirection.magnitude * playerCtrl.MoveSpeed;
+            float normalSpeed = playerCtrl.CurrentSpeed;
+            Assert.Greater(normalSpeed, 0f);
 
-            // Set hypothermic (< 32°C)
+            // Set hypothermic (< 32°C) -> 0.70x modifier
             playerStats.SetCurrentBodyTemperatureDirect(30f);
             playerCtrl.SetInputOverride(Vector2.up, false);
+            float hypoSpeed = playerCtrl.CurrentSpeed;
             Assert.AreEqual(0.70f, playerStats.MovementSpeedModifier, 0.01f);
+            Assert.AreEqual(normalSpeed * 0.70f, hypoSpeed, 0.05f);
+
+            // Set critical freezing (< 25°C) -> 0.45x modifier
+            playerStats.SetCurrentBodyTemperatureDirect(22f);
+            playerCtrl.SetInputOverride(Vector2.up, false);
+            float critSpeed = playerCtrl.CurrentSpeed;
+            Assert.AreEqual(0.45f, playerStats.MovementSpeedModifier, 0.01f);
+            Assert.AreEqual(normalSpeed * 0.45f, critSpeed, 0.05f);
         }
 
         // =========================================================================
@@ -376,6 +386,116 @@ namespace Outpost404.Tests
                 enemy.UnsubscribeFromDayNightCycle(cycleMgr);
                 Object.DestroyImmediate(enemyObj);
             }
+        }
+
+        [Test]
+        public void EnemyController_NightSurge_LoseSightRadiusExceedsDetectionRadius_NoOscillation()
+        {
+            GameObject enemyObj = new GameObject("TestEnemySurgeOscillation");
+            enemyObj.AddComponent<BoxCollider>();
+            var enemy = enemyObj.AddComponent<EnemyController>();
+
+            try
+            {
+                enemy.ApplyNightSurge(true);
+                Assert.Greater(enemy.CurrentLoseSightRadius, enemy.CurrentDetectionRadius,
+                    "Lose sight radius at night must strictly exceed detection radius to eliminate state oscillation loops.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(enemyObj);
+            }
+        }
+
+        [Test]
+        public void EnemyController_PhaseShift_ArbitraryJumpDeactivatesSurge()
+        {
+            GameObject enemyObj = new GameObject("TestEnemyArbitraryJump");
+            enemyObj.AddComponent<BoxCollider>();
+            var enemy = enemyObj.AddComponent<EnemyController>();
+
+            try
+            {
+                cycleMgr.SetTime(0.75f, 1); // Night
+                enemy.SubscribeToDayNightCycle(cycleMgr);
+                Assert.IsTrue(enemy.IsNightSurgeActive);
+
+                // Arbitrary jump directly to Dusk (skipping Dawn)
+                cycleMgr.SetTime(0.55f, 2);
+                Assert.IsFalse(enemy.IsNightSurgeActive, "Surge must deactivate when exiting Night to any non-night phase.");
+            }
+            finally
+            {
+                enemy.UnsubscribeFromDayNightCycle(cycleMgr);
+                Object.DestroyImmediate(enemyObj);
+            }
+        }
+
+        [Test]
+        public void BuildableStructure_HeatBeaconStaticRegistry_PrunesDestroyedReferencesAutomatically()
+        {
+            GameObject b1 = new GameObject("Beacon1");
+            var s1 = b1.AddComponent<BuildableStructure>();
+            s1.Type = StructureType.HeatBeacon;
+            s1.RegisterBeacon();
+
+            // Destroy GameObject without UnregisterBeacon
+            Object.DestroyImmediate(b1);
+
+            // Proximity query must prune the dead null pointer cleanly without throwing
+            Assert.DoesNotThrow(() =>
+            {
+                bool near = BuildableStructure.IsPositionNearHeatBeacon(Vector3.zero, out float bonus);
+                Assert.IsFalse(near);
+            });
+        }
+
+        [Test]
+        public void DayNightCycle_ClockMinutesClamping_NeverProducesInvalidSixtyMinutes()
+        {
+            // Boundary near top of hour (0.249999f)
+            cycleMgr.SetTime(0.249999f, 1);
+            cycleMgr.GetClockHoursAndMinutes(out int hours, out int minutes);
+            Assert.GreaterOrEqual(minutes, 0);
+            Assert.LessOrEqual(minutes, 59);
+
+            // Boundary right before midnight (0.749999f)
+            cycleMgr.SetTime(0.749999f, 1);
+            cycleMgr.GetClockHoursAndMinutes(out int h2, out int m2);
+            Assert.GreaterOrEqual(m2, 0);
+            Assert.LessOrEqual(m2, 59);
+        }
+
+        [Test]
+        public void SurvivalHUD_FrostWarningVisuals_EscalatesToCriticalColorAndText()
+        {
+            GameObject canvasObj = new GameObject("HUDTestCanvas");
+            var hud = canvasObj.AddComponent<Outpost404.UI.SurvivalHUD>();
+
+            GameObject frostBanner = new GameObject("FrostWarningBanner");
+            frostBanner.transform.SetParent(canvasObj.transform);
+            var bannerImg = frostBanner.AddComponent<UnityEngine.UI.Image>();
+            var bannerTextObj = new GameObject("Text");
+            bannerTextObj.transform.SetParent(frostBanner.transform);
+            var bannerText = bannerTextObj.AddComponent<UnityEngine.UI.Text>();
+
+            hud.ConfigureEnvironmentalUI(null, null, null, null, null, frostBanner);
+
+            // Normal temperature: banner inactive
+            hud.UpdateFrostWarningVisuals(37f);
+            Assert.IsFalse(frostBanner.activeSelf);
+
+            // Mild hypothermia (< 32°C): active with warning message
+            hud.UpdateFrostWarningVisuals(30f);
+            Assert.IsTrue(frostBanner.activeSelf);
+            StringAssert.Contains("HYPOTHERMIA", bannerText.text);
+
+            // Critical freezing (< 25°C): active with escalated message
+            hud.UpdateFrostWarningVisuals(22f);
+            Assert.IsTrue(frostBanner.activeSelf);
+            StringAssert.Contains("CRITICAL", bannerText.text);
+
+            Object.DestroyImmediate(canvasObj);
         }
     }
 }
