@@ -328,7 +328,7 @@ namespace Outpost404.EditorTools
             // Impact crater bowl centered around pod wreckage & beacon (-30, -30)
             float distToCrash = Vector2.Distance(new Vector2(worldX, worldZ), new Vector2(-30f, -30f));
             float alphaElevation = 0f;
-            if (distToCrash < 22f)
+            if (distToCrash < 20f)
             {
                 if (distToCrash < 10f)
                 {
@@ -338,7 +338,7 @@ namespace Outpost404.EditorTools
                 else
                 {
                     float rimT = (distToCrash - 10f) / 10f; // 0 to 1
-                    alphaElevation = Mathf.Sin(rimT * Mathf.PI) * 1.35f; // Raised ejecta rim (+1.35m)
+                    alphaElevation = Mathf.Sin(rimT * Mathf.PI) * 1.35f; // Raised ejecta rim (+1.35m at 15m, returning smoothly to 0 at 20m)
                 }
             }
 
