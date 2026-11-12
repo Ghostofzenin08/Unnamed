@@ -103,14 +103,25 @@ namespace Outpost404.CameraControl
             if (Application.isPlaying)
             {
                 UpdateShake();
-                desiredPosition += currentShakeOffset;
-                transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentVelocity, smoothTime);
+                Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentVelocity, smoothTime);
+                transform.position = smoothedPosition + currentShakeOffset;
             }
             else
             {
                 transform.position = desiredPosition;
                 ApplyCameraRotation();
             }
+        }
+
+        /// <summary>
+        /// Explicit deterministic follow & shake step, callable in automated tests and edit mode.
+        /// </summary>
+        public void StepFollow(float deltaTime)
+        {
+            Vector3 desiredPosition = ComputeDestination();
+            UpdateShake(deltaTime);
+            Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentVelocity, smoothTime, Mathf.Infinity, deltaTime);
+            transform.position = smoothedPosition + currentShakeOffset;
         }
 
         public Vector3 ComputeDestination()
