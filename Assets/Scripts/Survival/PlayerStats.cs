@@ -33,15 +33,31 @@ namespace Outpost404.Survival
         [SerializeField] private float baseHungerDrainRate = 0.8f;
         [SerializeField] private float sprintHungerMultiplier = 2.0f;
 
+        [Header("Environmental Temperature & Hypothermia")]
+        [SerializeField] private float normalBodyTemperature = 37f;
+        [SerializeField] private float hypothermiaThreshold = 32f;
+        [SerializeField] private float criticalFreezingThreshold = 25f;
+        [SerializeField] private float minBodyTemperature = 20f;
+        [SerializeField] private float currentBodyTemperature = 37f;
+        [SerializeField] private float hypothermiaDamageRate = 3.0f;
+        [SerializeField] private float criticalFreezingDamageRate = 7.0f;
+        [SerializeField] private float hypothermiaSpeedPenalty = 0.30f;
+        [SerializeField] private float criticalFreezingSpeedPenalty = 0.55f;
+        [SerializeField] private float bodyCoolingRate = 0.45f;
+        [SerializeField] private float bodyWarmingRate = 3.5f;
+
         // Runtime state timers
         private float staminaRegenTimer = 0f;
         private bool isDead = false;
+        private bool wasHypothermic = false;
         private PlayerController playerController;
 
         // Decoupled observation events (current, max)
         public event Action<float, float> OnHealthChanged;
         public event Action<float, float> OnStaminaChanged;
         public event Action<float, float> OnHungerChanged;
+        public event Action<float> OnBodyTemperatureChanged;
+        public event Action<bool> OnHypothermiaStateChanged;
         public event Action OnPlayerDied;
 
         // IDamageable implementation
@@ -56,10 +72,39 @@ namespace Outpost404.Survival
         public float MaxHunger => maxHunger;
         public bool CanSprint => !isDead && currentStamina > 2f;
 
+        // Temperature & Hypothermia Properties
+        public float CurrentBodyTemperature => currentBodyTemperature;
+        public float NormalBodyTemperature => normalBodyTemperature;
+        public float HypothermiaThreshold => hypothermiaThreshold;
+        public float CriticalFreezingThreshold => criticalFreezingThreshold;
+        public float MinBodyTemperature => minBodyTemperature;
+        public bool IsInHypothermia => currentBodyTemperature < hypothermiaThreshold;
+        public bool IsCriticalFreezing => currentBodyTemperature < criticalFreezingThreshold;
+
+        public float MovementSpeedModifier
+        {
+            get
+            {
+                if (currentBodyTemperature < criticalFreezingThreshold)
+                {
+                    return Mathf.Clamp01(1f - criticalFreezingSpeedPenalty);
+                }
+                if (currentBodyTemperature < hypothermiaThreshold)
+                {
+                    return Mathf.Clamp01(1f - hypothermiaSpeedPenalty);
+                }
+                return 1.0f;
+            }
+        }
+
         public float MaxHealthProperty { get => maxHealth; set => maxHealth = Mathf.Max(1f, value); }
         public float MaxStaminaProperty { get => maxStamina; set => maxStamina = Mathf.Max(1f, value); }
         public float MaxHungerProperty { get => maxHunger; set => maxHunger = Mathf.Max(1f, value); }
         public float SprintStaminaCost { get => sprintStaminaCost; set => sprintStaminaCost = value; }
+        public float HypothermiaDamageRate { get => hypothermiaDamageRate; set => hypothermiaDamageRate = Mathf.Max(0f, value); }
+        public float CriticalFreezingDamageRate { get => criticalFreezingDamageRate; set => criticalFreezingDamageRate = Mathf.Max(0f, value); }
+        public float BodyCoolingRate { get => bodyCoolingRate; set => bodyCoolingRate = Mathf.Max(0f, value); }
+        public float BodyWarmingRate { get => bodyWarmingRate; set => bodyWarmingRate = Mathf.Max(0f, value); }
 
         private void Awake()
         {
@@ -72,7 +117,9 @@ namespace Outpost404.Survival
             currentHealth = maxHealth;
             currentStamina = maxStamina;
             currentHunger = maxHunger;
+            currentBodyTemperature = normalBodyTemperature;
             isDead = false;
+            wasHypothermic = false;
             staminaRegenTimer = 0f;
 
             NotifyAllStats();
@@ -137,6 +184,101 @@ namespace Outpost404.Survival
                 // Well-fed condition regenerates health
                 currentHealth = Mathf.Clamp(currentHealth + (healthRegenRate * deltaTime), 0f, maxHealth);
                 OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            }
+
+            // 4. Environmental Temperature & Hypothermia
+            float ambient = 22f;
+            if (Outpost404.Environment.DayNightCycleManager.Instance != null)
+            {
+                ambient = Outpost404.Environment.DayNightCycleManager.Instance.CurrentAmbientTemperature;
+            }
+
+            bool nearHeat = Outpost404.Building.BuildableStructure.IsPositionNearHeatBeacon(transform.position, out float heatBonus);
+            if (nearHeat)
+            {
+                ambient += heatBonus;
+            }
+
+            TickTemperature(deltaTime, ambient, nearHeat);
+        }
+
+        /// <summary>
+        /// Explicit deterministic environmental temperature evaluation for body cooling,
+        /// thermal restoration near heat sources, and hypothermia damage.
+        /// Publicly callable for automated unit tests.
+        /// </summary>
+        public void TickTemperature(float deltaTime, float ambientTemperature, bool isNearHeatSource)
+        {
+            if (isDead || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
+            if (float.IsNaN(ambientTemperature) || float.IsInfinity(ambientTemperature)) ambientTemperature = 22f;
+
+            if (isNearHeatSource)
+            {
+                // Active thermal radiation rapidly restores body temperature to 37°C
+                currentBodyTemperature = Mathf.MoveTowards(currentBodyTemperature, normalBodyTemperature, bodyWarmingRate * deltaTime);
+            }
+            else if (ambientTemperature < 15f)
+            {
+                // Cold ambient temperature (< 15°C) drains body heat towards freezing
+                float coldIntensity = Mathf.Clamp01((15f - ambientTemperature) / 35f);
+                float drop = bodyCoolingRate * (0.35f + 0.65f * coldIntensity) * deltaTime;
+                currentBodyTemperature = Mathf.Clamp(currentBodyTemperature - drop, minBodyTemperature, normalBodyTemperature);
+            }
+            else if (ambientTemperature >= 20f && currentBodyTemperature < normalBodyTemperature)
+            {
+                // Pleasant daytime ambient provides passive thermal recovery
+                float recovery = (bodyWarmingRate * 0.2f) * deltaTime;
+                currentBodyTemperature = Mathf.MoveTowards(currentBodyTemperature, normalBodyTemperature, recovery);
+            }
+
+            // Hypothermia health drain occurs only when not protected by a heat beacon
+            if (!isNearHeatSource)
+            {
+                if (currentBodyTemperature < criticalFreezingThreshold)
+                {
+                    TakeDamage(criticalFreezingDamageRate * deltaTime);
+                }
+                else if (currentBodyTemperature < hypothermiaThreshold)
+                {
+                    TakeDamage(hypothermiaDamageRate * deltaTime);
+                }
+            }
+
+            OnBodyTemperatureChanged?.Invoke(currentBodyTemperature);
+
+            bool isHypo = IsInHypothermia;
+            if (isHypo != wasHypothermic)
+            {
+                wasHypothermic = isHypo;
+                OnHypothermiaStateChanged?.Invoke(isHypo);
+            }
+        }
+
+        public void RestoreWarmth(float deltaTime)
+        {
+            if (isDead || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime)) return;
+            currentBodyTemperature = Mathf.MoveTowards(currentBodyTemperature, normalBodyTemperature, bodyWarmingRate * deltaTime);
+            OnBodyTemperatureChanged?.Invoke(currentBodyTemperature);
+
+            bool isHypo = IsInHypothermia;
+            if (isHypo != wasHypothermic)
+            {
+                wasHypothermic = isHypo;
+                OnHypothermiaStateChanged?.Invoke(isHypo);
+            }
+        }
+
+        public void SetCurrentBodyTemperatureDirect(float val)
+        {
+            if (float.IsNaN(val) || float.IsInfinity(val)) return;
+            currentBodyTemperature = Mathf.Clamp(val, minBodyTemperature, normalBodyTemperature);
+            OnBodyTemperatureChanged?.Invoke(currentBodyTemperature);
+
+            bool isHypo = IsInHypothermia;
+            if (isHypo != wasHypothermic)
+            {
+                wasHypothermic = isHypo;
+                OnHypothermiaStateChanged?.Invoke(isHypo);
             }
         }
 
@@ -244,6 +386,8 @@ namespace Outpost404.Survival
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
             OnStaminaChanged?.Invoke(currentStamina, maxStamina);
             OnHungerChanged?.Invoke(currentHunger, maxHunger);
+            OnBodyTemperatureChanged?.Invoke(currentBodyTemperature);
+            OnHypothermiaStateChanged?.Invoke(IsInHypothermia);
         }
     }
 }
