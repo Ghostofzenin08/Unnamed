@@ -53,6 +53,8 @@ namespace Outpost404.Player
 
         public Vector3 CurrentMoveDirection => targetMoveVelocity.normalized;
         public Vector3 CurrentVelocity => currentVelocity;
+        public Vector3 TargetMoveVelocity => targetMoveVelocity;
+        public float CurrentSpeed => targetMoveVelocity.magnitude;
         public bool IsMoving => targetMoveVelocity.sqrMagnitude > 0.01f;
         public bool IsSprinting => isSprinting;
         public Vector3 LookTargetPoint => lookTargetPoint;
