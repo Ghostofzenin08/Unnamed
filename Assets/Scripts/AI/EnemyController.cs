@@ -30,6 +30,12 @@ namespace Outpost404.AI
         [SerializeField] private Transform targetPlayer;
         [SerializeField] private Transform[] patrolWaypoints;
 
+        [Header("Night Anomaly Surge Configuration")]
+        [SerializeField] private bool isNightSurgeActive = false;
+        [SerializeField] private float nightDetectionMultiplier = 1.67f; // e.g. 12m -> 20m
+        [SerializeField] private float nightChaseSpeedMultiplier = 1.20f; // +20%
+        [SerializeField] private float nightAttackDamageMultiplier = 1.25f; // +25%
+
         private NavMeshAgent agent;
         private Collider col;
         private float currentHealth;
@@ -42,12 +48,20 @@ namespace Outpost404.AI
         public event Action<EnemyState> OnStateChanged;
         public event Action OnEnemyDied;
         public event Action OnAttackLanded;
+        public event Action<bool> OnNightSurgeChanged;
 
         public EnemyState CurrentState => currentState;
         public float CurrentHealth => currentHealth;
         public float MaxHealth => stats != null ? stats.MaxHealth : 60f;
         public bool IsDead => isDead;
         public Transform TargetPlayer => targetPlayer;
+        public bool IsNightSurgeActive => isNightSurgeActive;
+        public float CurrentDetectionRadius => (stats != null ? stats.DetectionRadius : 12f) * (isNightSurgeActive ? nightDetectionMultiplier : 1.0f);
+        public float CurrentChaseSpeed => (stats != null ? stats.ChaseSpeed : 4.8f) * (isNightSurgeActive ? nightChaseSpeedMultiplier : 1.0f);
+        public float CurrentAttackDamage => (stats != null ? stats.AttackDamage : 15f) * (isNightSurgeActive ? nightAttackDamageMultiplier : 1.0f);
+        public float NightDetectionMultiplier { get => nightDetectionMultiplier; set => nightDetectionMultiplier = value; }
+        public float NightChaseSpeedMultiplier { get => nightChaseSpeedMultiplier; set => nightChaseSpeedMultiplier = value; }
+        public float NightAttackDamageMultiplier { get => nightAttackDamageMultiplier; set => nightAttackDamageMultiplier = value; }
 
         private void Awake()
         {
@@ -79,9 +93,67 @@ namespace Outpost404.AI
             }
         }
 
+        private void OnEnable()
+        {
+            SubscribeToDayNightCycle();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeFromDayNightCycle();
+        }
+
+        public void SubscribeToDayNightCycle(Outpost404.Environment.DayNightCycleManager mgr = null)
+        {
+            var targetMgr = mgr != null ? mgr : Outpost404.Environment.DayNightCycleManager.Instance;
+            if (targetMgr != null)
+            {
+                targetMgr.OnPhaseChanged += HandleDayPhaseChanged;
+                if (targetMgr.CurrentPhase == Outpost404.Environment.DayPhase.Night)
+                {
+                    ApplyNightSurge(true);
+                }
+            }
+        }
+
+        public void UnsubscribeFromDayNightCycle(Outpost404.Environment.DayNightCycleManager mgr = null)
+        {
+            var targetMgr = mgr != null ? mgr : Outpost404.Environment.DayNightCycleManager.Instance;
+            if (targetMgr != null)
+            {
+                targetMgr.OnPhaseChanged -= HandleDayPhaseChanged;
+            }
+        }
+
+        public void ApplyNightSurge(bool active)
+        {
+            if (isNightSurgeActive == active) return;
+            isNightSurgeActive = active;
+
+            if (currentState == EnemyState.Chase && agent != null && agent.isOnNavMesh)
+            {
+                agent.speed = CurrentChaseSpeed;
+            }
+
+            OnNightSurgeChanged?.Invoke(isNightSurgeActive);
+        }
+
+        private void HandleDayPhaseChanged(Outpost404.Environment.DayPhase phase)
+        {
+            if (phase == Outpost404.Environment.DayPhase.Night)
+            {
+                ApplyNightSurge(true);
+            }
+            else if (phase == Outpost404.Environment.DayPhase.Dawn)
+            {
+                ApplyNightSurge(false);
+            }
+        }
+
         private void Start()
         {
             FindPlayerIfNull();
+            SubscribeToDayNightCycle();
         }
 
         private void Update()
@@ -134,7 +206,7 @@ namespace Outpost404.AI
 
         private void UpdatePatrolState(float distToPlayer, float deltaTime)
         {
-            float detectRadius = stats != null ? stats.DetectionRadius : 9f;
+            float detectRadius = CurrentDetectionRadius;
             if (IsPlayerValidAndAlive() && distToPlayer <= detectRadius)
             {
                 TransitionTo(EnemyState.Chase);
@@ -209,7 +281,7 @@ namespace Outpost404.AI
             if (agent != null && agent.isOnNavMesh)
             {
                 agent.isStopped = false;
-                agent.speed = stats != null ? stats.ChaseSpeed : 4.8f;
+                agent.speed = CurrentChaseSpeed;
                 agent.SetDestination(targetPlayer.position);
             }
         }
@@ -256,7 +328,7 @@ namespace Outpost404.AI
         public void ExecuteAttack()
         {
             float cd = stats != null ? stats.AttackCooldown : 1.25f;
-            float damage = stats != null ? stats.AttackDamage : 15f;
+            float damage = CurrentAttackDamage;
             attackTimer = cd;
 
             if (targetPlayer != null)
