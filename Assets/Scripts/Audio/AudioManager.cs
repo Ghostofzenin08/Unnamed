@@ -136,6 +136,8 @@ namespace Outpost404.Audio
             ApplyBusVolumes();
         }
 
+        private bool isSubscribedToEnvironment = false;
+
         private void OnEnable()
         {
             if (Instance == null) Instance = this;
@@ -150,6 +152,11 @@ namespace Outpost404.Audio
 
         private void Start()
         {
+            if (!isSubscribedToEnvironment)
+            {
+                SubscribeToEnvironment();
+            }
+
             // Initial ambient playback based on day night cycle
             if (DayNightCycleManager.Instance != null)
             {
@@ -158,6 +165,15 @@ namespace Outpost404.Audio
             else
             {
                 PlayDayAmbient();
+            }
+        }
+
+        private void Update()
+        {
+            if (!isSubscribedToEnvironment && DayNightCycleManager.Instance != null)
+            {
+                SubscribeToEnvironment();
+                SetDayNightAmbient(DayNightCycleManager.Instance.CurrentPhase);
             }
         }
 
@@ -188,6 +204,10 @@ namespace Outpost404.Audio
             if (musicSource != null)
             {
                 musicSource.volume = EffectiveMusicVolume;
+                if (EffectiveMusicVolume > 0.0001f && !musicSource.isPlaying && musicSource.clip != null)
+                {
+                    musicSource.Play();
+                }
             }
             if (sfxSource != null)
             {
@@ -325,21 +345,23 @@ namespace Outpost404.Audio
             }
         }
 
-        private void SubscribeToEnvironment()
+        public void SubscribeToEnvironment()
         {
             if (DayNightCycleManager.Instance != null)
             {
                 DayNightCycleManager.Instance.OnPhaseChanged -= HandlePhaseChanged;
                 DayNightCycleManager.Instance.OnPhaseChanged += HandlePhaseChanged;
+                isSubscribedToEnvironment = true;
             }
         }
 
-        private void UnsubscribeFromEnvironment()
+        public void UnsubscribeFromEnvironment()
         {
             if (DayNightCycleManager.Instance != null)
             {
                 DayNightCycleManager.Instance.OnPhaseChanged -= HandlePhaseChanged;
             }
+            isSubscribedToEnvironment = false;
         }
 
         private void HandlePhaseChanged(DayPhase newPhase)
@@ -552,16 +574,19 @@ namespace Outpost404.Audio
         }
 
         /// <summary>
-        /// Loopable gentle wind breeze for daytime planetary atmosphere.
+        /// Loopable gentle wind breeze for daytime planetary atmosphere with seamless DSP crossfade.
         /// </summary>
         public static AudioClip CreateDayAmbient()
         {
             float duration = 2.0f; // 2 seconds seamless loop
+            float fadeTime = 0.10f; // 100ms crossfade
             int totalSamples = Mathf.CeilToInt(SampleRate * duration);
-            float[] data = new float[totalSamples];
+            int fadeSamples = Mathf.CeilToInt(SampleRate * fadeTime);
+            int genSamples = totalSamples + fadeSamples;
+            float[] raw = new float[genSamples];
 
             float lastSample = 0f;
-            for (int i = 0; i < totalSamples; i++)
+            for (int i = 0; i < genSamples; i++)
             {
                 float t = (float)i / SampleRate;
 
@@ -571,7 +596,21 @@ namespace Outpost404.Audio
 
                 // Gentle swell modulation
                 float modulation = 0.65f + 0.35f * Mathf.Sin(2f * Mathf.PI * 0.5f * t);
-                data[i] = Mathf.Clamp(lastSample * modulation * 0.4f, -1f, 1f);
+                raw[i] = Mathf.Clamp(lastSample * modulation * 0.4f, -1f, 1f);
+            }
+
+            float[] data = new float[totalSamples];
+            for (int i = 0; i < totalSamples; i++)
+            {
+                if (i < fadeSamples)
+                {
+                    float w = 0.5f * (1f - Mathf.Cos((float)i / fadeSamples * Mathf.PI));
+                    data[i] = raw[i] * w + raw[totalSamples + i] * (1f - w);
+                }
+                else
+                {
+                    data[i] = raw[i];
+                }
             }
 
             AudioClip clip = AudioClip.Create("DayAmbient_Procedural", totalSamples, 1, SampleRate, false);
@@ -580,28 +619,45 @@ namespace Outpost404.Audio
         }
 
         /// <summary>
-        /// Loopable ominous sub-bass drone with eerie anomaly pulsing for nighttime.
+        /// Loopable ominous sub-bass drone with eerie anomaly pulsing for nighttime with seamless DSP crossfade.
         /// </summary>
         public static AudioClip CreateNightAmbient()
         {
             float duration = 2.5f;
+            float fadeTime = 0.12f; // 120ms crossfade
             int totalSamples = Mathf.CeilToInt(SampleRate * duration);
-            float[] data = new float[totalSamples];
+            int fadeSamples = Mathf.CeilToInt(SampleRate * fadeTime);
+            int genSamples = totalSamples + fadeSamples;
+            float[] raw = new float[genSamples];
 
-            for (int i = 0; i < totalSamples; i++)
+            for (int i = 0; i < genSamples; i++)
             {
                 float t = (float)i / SampleRate;
 
-                // Deep sub-bass with detuned harmonic pulsing (55Hz + 57.5Hz = 2.5Hz beat rate)
-                float sub1 = Mathf.Sin(2f * Mathf.PI * 55f * t);
-                float sub2 = Mathf.Sin(2f * Mathf.PI * 57.5f * t);
+                // Deep sub-bass with detuned harmonic pulsing (56Hz + 58Hz = 2.0Hz beat rate, exact integer cycles)
+                float sub1 = Mathf.Sin(2f * Mathf.PI * 56f * t);
+                float sub2 = Mathf.Sin(2f * Mathf.PI * 58f * t);
 
                 // Anomaly high-frequency hum (220Hz with vibrato)
-                float vibrato = Mathf.Sin(2f * Mathf.PI * 3f * t) * 6f;
+                float vibrato = Mathf.Sin(2f * Mathf.PI * 2f * t) * 6f;
                 float hum = Mathf.Sin(2f * Mathf.PI * (220f + vibrato) * t) * 0.18f;
 
                 float combined = (sub1 * 0.45f + sub2 * 0.45f + hum) * 0.5f;
-                data[i] = Mathf.Clamp(combined, -1f, 1f);
+                raw[i] = Mathf.Clamp(combined, -1f, 1f);
+            }
+
+            float[] data = new float[totalSamples];
+            for (int i = 0; i < totalSamples; i++)
+            {
+                if (i < fadeSamples)
+                {
+                    float w = 0.5f * (1f - Mathf.Cos((float)i / fadeSamples * Mathf.PI));
+                    data[i] = raw[i] * w + raw[totalSamples + i] * (1f - w);
+                }
+                else
+                {
+                    data[i] = raw[i];
+                }
             }
 
             AudioClip clip = AudioClip.Create("NightAmbient_Procedural", totalSamples, 1, SampleRate, false);
