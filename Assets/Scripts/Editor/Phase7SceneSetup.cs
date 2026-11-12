@@ -22,13 +22,22 @@ namespace Outpost404.EditorTools
 
             // 2. Locate or create Directional Light
             Light sunLight = null;
-            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
-            for (int i = 0; i < lights.Length; i++)
+            GameObject dirLightObj = GameObject.Find("Directional Light");
+            if (dirLightObj != null)
             {
-                if (lights[i].type == LightType.Directional)
+                sunLight = dirLightObj.GetComponent<Light>();
+            }
+
+            if (sunLight == null)
+            {
+                Light[] lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+                for (int i = 0; i < lights.Length; i++)
                 {
-                    sunLight = lights[i];
-                    break;
+                    if (lights[i].type == LightType.Directional && (lights[i].transform.parent == null || lights[i].gameObject.name.Contains("Directional Light") || lights[i].gameObject.name.Contains("Sun")))
+                    {
+                        sunLight = lights[i];
+                        break;
+                    }
                 }
             }
 
@@ -37,6 +46,16 @@ namespace Outpost404.EditorTools
                 GameObject sunObj = new GameObject("Directional Light");
                 sunLight = sunObj.AddComponent<Light>();
                 sunLight.type = LightType.Directional;
+            }
+
+            // Disable extraneous child orientation directional lights imported with 3D assets to prevent blowout
+            Light[] allSceneLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            for (int i = 0; i < allSceneLights.Length; i++)
+            {
+                if (allSceneLights[i] != sunLight && allSceneLights[i].type == LightType.Directional && allSceneLights[i].name.Contains("Orientation"))
+                {
+                    allSceneLights[i].enabled = false;
+                }
             }
 
             // 3. Day / Night Cycle Manager
