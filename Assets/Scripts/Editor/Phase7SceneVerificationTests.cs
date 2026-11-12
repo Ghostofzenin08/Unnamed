@@ -34,6 +34,7 @@ namespace Outpost404.Tests
 
             Assert.IsNotNull(cycle.SunLight, "DayNightCycleManager must have SunLight assigned.");
             Assert.AreEqual(LightType.Directional, cycle.SunLight.type, "SunLight must be a Directional Light.");
+            Assert.AreEqual("Directional Light", cycle.SunLight.gameObject.name, "SunLight must be wired to the scene's primary Directional Light.");
             Assert.Greater(cycle.DayLengthInSeconds, 0f, "DayLengthInSeconds must be positive.");
 
             // Verify ambient temperature calculation
