@@ -187,6 +187,10 @@ namespace Outpost404.EditorTools
             var pMf = player.GetComponent<MeshFilter>();
             if (pMf != null) Object.DestroyImmediate(pMf);
 
+            // Remove legacy primitive capsule and visor child so astronaut is sole rendered model
+            Transform primitiveVis = player.transform.Find("Visual");
+            if (primitiveVis != null) Object.DestroyImmediate(primitiveVis.gameObject);
+
             // Attach 3D OrbitalAstronaut visual
             Transform existingVis = player.transform.Find("Visual_OrbitalAstronaut");
             if (existingVis != null) Object.DestroyImmediate(existingVis.gameObject);
@@ -196,7 +200,7 @@ namespace Outpost404.EditorTools
                 GameObject astronautVis = Object.Instantiate(astronautModel);
                 astronautVis.name = "Visual_OrbitalAstronaut";
                 astronautVis.transform.SetParent(player.transform, false);
-                astronautVis.transform.localPosition = new Vector3(0f, 0f, 0f);
+                astronautVis.transform.localPosition = new Vector3(0f, 0.95f, 0f);
                 astronautVis.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
                 astronautVis.transform.localScale = new Vector3(1.9f, 1.9f, 1.9f);
 
@@ -426,7 +430,8 @@ namespace Outpost404.EditorTools
                 GameObject vis = Object.Instantiate(beastModel);
                 vis.name = "Visual_AlienPredatorBeast";
                 vis.transform.SetParent(enemy.transform, false);
-                vis.transform.localPosition = new Vector3(0f, 0f, 0f);
+                vis.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+                vis.transform.localRotation = Quaternion.identity;
                 vis.transform.localScale = new Vector3(2.4f, 2.4f, 2.4f);
                 var childCols = vis.GetComponentsInChildren<Collider>(true);
                 for (int c = 0; c < childCols.Length; c++) Object.DestroyImmediate(childCols[c]);
