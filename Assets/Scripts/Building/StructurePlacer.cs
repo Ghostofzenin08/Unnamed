@@ -429,6 +429,7 @@ namespace Outpost404.Building
             }
 
             OnStructurePlaced?.Invoke(structure, currentSnappedPosition);
+            Outpost404.Objective.MissionStatistics.Instance?.RecordStructureBuilt();
 
             // Finish placement
             CancelPlacement();
