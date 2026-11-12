@@ -12,26 +12,36 @@ namespace Outpost404.EditorTools
         [MenuItem("Outpost 404/Setup Full Game Scene (Phase 8 - Audio & Combat Juice)", false, 11)]
         public static void BuildPhase8Scene()
         {
-            // 1. Build Phase 7 base scene (Day/Night, thermal hazards, 3D models, inventory, crafting)
-            Phase7SceneSetup.BuildPhase7Scene();
-
             string scenePath = "Assets/Scenes/SampleScene.unity";
+            if (!System.IO.File.Exists(scenePath))
+            {
+                Phase7SceneSetup.BuildPhase7Scene();
+            }
+
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            if (Object.FindFirstObjectByType<Outpost404.Environment.DayNightCycleManager>() == null)
+            {
+                Phase7SceneSetup.BuildPhase7Scene();
+                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            }
 
             // 2. Ensure Project Scene Opener and Build Settings are registered
             ProjectSceneOpener.EnsureBuildSettingsConfigured();
 
             // 3. Setup AudioManager in scene
+            bool modified = false;
             GameObject audioMgrObj = GameObject.Find("AudioManager");
             if (audioMgrObj == null)
             {
                 audioMgrObj = new GameObject("AudioManager");
+                modified = true;
             }
 
             var audioMgr = audioMgrObj.GetComponent<AudioManager>();
             if (audioMgr == null)
             {
                 audioMgr = audioMgrObj.AddComponent<AudioManager>();
+                modified = true;
             }
 
             audioMgr.EnsureAudioSources();
@@ -62,13 +72,17 @@ namespace Outpost404.EditorTools
                 if (follow == null)
                 {
                     follow = mainCam.gameObject.AddComponent<TopDownCameraFollow>();
+                    modified = true;
                 }
             }
 
-            // 5. Mark scene dirty and save
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene);
-            AssetDatabase.SaveAssets();
+            // 5. Mark scene dirty and save only if modified
+            if (modified || scene.isDirty)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                AssetDatabase.SaveAssets();
+            }
 
             Debug.Log("<color=green>[Outpost 404]</color> Phase 8 Scene Setup (Audio & Combat Juice) successfully completed and saved!");
         }
