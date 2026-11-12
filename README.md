@@ -29,7 +29,7 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), crafting recipes (`RecipeSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
 * **Base Building & Holograms**: Real-time holographic ghost placement system with clearance collision detection, rotation snapping, and defensive/environmental structures (`BuildableStructure`)
 * **Custom 3D Art Pipeline**: Full 11-asset pipeline (Orbital Astronaut, Predator Beast, Alien Timber Tree, Mineral Boulder, Scrap Hull, Ration Packs, Shrub flora) imported via glTFast
-* **Verification Suite**: 140 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Day/Night & Environment, Audio System & Procedural Waveforms, Screen Shake & Combat Juice, and Scene Wiring with 100% pass rate in Unity Test Runner
+* **Verification Suite**: 154 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Day/Night & Environment, Audio System & Procedural Waveforms, Screen Shake & Combat Juice, Win/Loss Objective, 120m Map Expansion, and Persistence Serialization with 100% pass rate in Unity Test Runner
 
 ---
 
@@ -76,6 +76,12 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
   - Procedural Combat Particles: Dynamic particle bursts for wood splinters, rock sparks, and bioluminescent alien blood
   - Hit Feedback: Entity visual recoil displacement and material flash on taking damage
   - Automatic Level Opener & Build Settings: `ProjectSceneOpener` ensuring `SampleScene.unity` auto-loads on startup and is registered in `EditorBuildSettings`
+- [x] **Phase 9: Win/Loss Objective & Persistence System (Final Core Phase)**
+  - `BeaconObjective`: SOS Distress Beacon in Sector Alpha with a 3-Stage Repair Sequence requiring harvested materials (Stage 1: Power Matrix [4x Conductive Ore + 3x Salvaged Scrap], Stage 2: Signal Dish Array [6x Composite Timber + 4x Conductive Ore], Stage 3: Activation Core [3x Alien Meat + 5x Salvaged Scrap]), beacon activation, 60-second survival extraction countdown, and Anomaly Prowler horde defense surge
+  - Victory & Defeat Flow: Extraction dropship victory sequence with expedition statistics (Days Survived, Enemies Slain, Resources Harvested, Structures Built); Defeat screen upon player death with restart mission reloading
+  - Save / Load Persistence System (`SaveSystem`): JSON serialization to `Application.persistentDataPath/outpost404_save.json`, preserving Player vitals/position, full inventory slots, placed world structures with durabilities, beacon repair stage, day count, diurnal time, and mission metrics, with Quick-save (`F5`) and Quick-load (`F9`) hotkeys and toast feedback
+  - 120m x 120m Multi-Sector Map Expansion: 4 distinct biome sectors (Sector Alpha: Crash Site & Habitat Perimeter, Sector Beta: Deep Timber Canopy Forest with 30+ trees/shrubs, Sector Gamma: Crystalline Basin with 30+ boulders/ore, Sector Delta: Anomaly Hive & Prowler Hunting Grounds), perimeter boundary walls, and re-baked NavMesh
+  - Critical 3D Visual Isolation Fix: Astronaut model isolated with no primitive capsule obstructing it; beast paws aligned to ground
 
 ---
 
