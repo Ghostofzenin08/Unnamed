@@ -177,6 +177,12 @@ namespace Outpost404.Persistence
 
         public void QuickSave()
         {
+            if (targetPlayerStats != null && targetPlayerStats.IsDead)
+            {
+                ShowToast("CANNOT SAVE WHILE LIFE SUPPORT OFFLINE");
+                return;
+            }
+
             bool success = SaveGame();
             if (success)
             {
@@ -294,7 +300,8 @@ namespace Outpost404.Persistence
             {
                 targetPlayerStats.transform.position = data.playerPosition.ToVector3();
                 targetPlayerStats.transform.rotation = Quaternion.Euler(0f, data.playerRotationY, 0f);
-                targetPlayerStats.SetStatsDirect(data.playerHealth, data.playerHunger, data.playerStamina, data.playerBodyTemperature);
+                float restoredHealth = data.playerHealth > 0f ? data.playerHealth : 100f;
+                targetPlayerStats.SetStatsDirect(restoredHealth, data.playerHunger, data.playerStamina, data.playerBodyTemperature);
             }
 
             // 2. Restore Inventory
@@ -331,7 +338,8 @@ namespace Outpost404.Persistence
             {
                 if (existingStructures[i] != null)
                 {
-                    Destroy(existingStructures[i].gameObject);
+                    if (Application.isPlaying) Destroy(existingStructures[i].gameObject);
+                    else DestroyImmediate(existingStructures[i].gameObject);
                 }
             }
 
@@ -393,6 +401,12 @@ namespace Outpost404.Persistence
         {
             try
             {
+                if (targetPlayerStats != null && targetPlayerStats.IsDead)
+                {
+                    Debug.LogWarning("[SaveSystem] Save aborted: Player life support is offline.");
+                    return false;
+                }
+
                 string path = !string.IsNullOrEmpty(customPath) ? customPath : GetDefaultSaveFilePath();
                 string dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
