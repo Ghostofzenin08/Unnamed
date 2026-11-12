@@ -45,8 +45,6 @@ namespace Outpost404.Combat
         /// </summary>
         public static GameObject SpawnImpactParticles(Vector3 position, Vector3 normal, ImpactType type)
         {
-            if (!Application.isPlaying) return null;
-
             GameObject go = new GameObject($"ImpactParticles_{type}");
             go.transform.position = position;
             if (normal.sqrMagnitude > 0.01f)
@@ -128,7 +126,10 @@ namespace Outpost404.Combat
             shape.radius = 0.05f;
 
             ps.Play();
-            Object.Destroy(go, 0.6f);
+            if (Application.isPlaying)
+            {
+                Object.Destroy(go, 0.6f);
+            }
             return go;
         }
 
@@ -137,7 +138,7 @@ namespace Outpost404.Combat
         /// </summary>
         public static GameObject SpawnMeleeSlashArc(Transform origin, float radius = 1.6f, float sweepAngle = 110f)
         {
-            if (!Application.isPlaying || origin == null) return null;
+            if (origin == null) return null;
 
             GameObject arcObj = new GameObject("MeleeSlashArc");
             arcObj.transform.position = origin.position + Vector3.up * 0.9f;
@@ -171,7 +172,10 @@ namespace Outpost404.Combat
                 lr.SetPosition(i, new Vector3(x, 0f, z));
             }
 
-            Object.Destroy(arcObj, 0.12f);
+            if (Application.isPlaying)
+            {
+                Object.Destroy(arcObj, 0.12f);
+            }
             return arcObj;
         }
     }
