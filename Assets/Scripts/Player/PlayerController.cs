@@ -158,7 +158,8 @@ namespace Outpost404.Player
             }
 
             isSprinting = sprintPressed && (playerStats == null || playerStats.CanSprint);
-            float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f);
+            float speedModifier = playerStats != null ? playerStats.MovementSpeedModifier : 1.0f;
+            float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f) * speedModifier;
 
             // World-space horizontal velocity target
             Vector3 desiredDirection = new Vector3(rawInput.x, 0f, rawInput.y);
@@ -259,9 +260,11 @@ namespace Outpost404.Player
         /// </summary>
         public void SetInputOverride(Vector2 input, bool sprint)
         {
+            if (playerStats == null) playerStats = GetComponent<Outpost404.Survival.PlayerStats>();
             rawInput = Vector2.ClampMagnitude(input, 1f);
             isSprinting = sprint;
-            float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f);
+            float speedModifier = playerStats != null ? playerStats.MovementSpeedModifier : 1.0f;
+            float speed = moveSpeed * (isSprinting ? sprintMultiplier : 1f) * speedModifier;
             targetMoveVelocity = new Vector3(rawInput.x, 0f, rawInput.y) * speed;
         }
 
