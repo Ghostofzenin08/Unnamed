@@ -420,6 +420,7 @@ namespace Outpost404.AI
 
             SpawnDropLoot();
             OnEnemyDied?.Invoke();
+            Outpost404.Objective.MissionStatistics.Instance?.RecordEnemySlain();
 
             if (Application.isPlaying)
             {
