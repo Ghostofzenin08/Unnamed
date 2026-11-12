@@ -35,14 +35,25 @@ namespace Outpost404.Building
         [Header("Heat Beacon / Pulse Campfire Aura")]
         [SerializeField] private float auraRadius = 5.0f;
         [SerializeField] private float healthRegenPerSecond = 6.0f;
+        [SerializeField] private float thermalWarmthBonus = 35.0f;
         [SerializeField] private Light auraLight;
 
         private bool isDead = false;
+        private static readonly System.Collections.Generic.List<BuildableStructure> activeHeatBeacons = new System.Collections.Generic.List<BuildableStructure>();
 
         public event Action<BuildableStructure, float> OnDurabilityChanged;
         public event Action<BuildableStructure> OnStructureDestroyed;
 
-        public StructureType Type => structureType;
+        public StructureType Type
+        {
+            get => structureType;
+            set
+            {
+                structureType = value;
+                if (structureType == StructureType.HeatBeacon) RegisterBeacon();
+                else UnregisterBeacon();
+            }
+        }
         public string StructureName { get => structureName; set => structureName = value; }
         public float MaxDurability { get => maxDurability; set => maxDurability = Mathf.Max(1f, value); }
         public float CurrentDurability => currentDurability;
@@ -52,7 +63,52 @@ namespace Outpost404.Building
         public Vector3 PlacementExtents { get => placementExtents; set => placementExtents = value; }
         public float AuraRadius { get => auraRadius; set => auraRadius = Mathf.Max(0.5f, value); }
         public float HealthRegenPerSecond { get => healthRegenPerSecond; set => healthRegenPerSecond = Mathf.Max(0f, value); }
+        public float ThermalWarmthBonus { get => thermalWarmthBonus; set => thermalWarmthBonus = value; }
         public bool IsDead => isDead;
+        public static System.Collections.Generic.IReadOnlyList<BuildableStructure> ActiveHeatBeacons => activeHeatBeacons;
+
+        private void OnEnable()
+        {
+            RegisterBeacon();
+        }
+
+        private void OnDisable()
+        {
+            UnregisterBeacon();
+        }
+
+        public void RegisterBeacon()
+        {
+            if (structureType == StructureType.HeatBeacon && !activeHeatBeacons.Contains(this))
+            {
+                activeHeatBeacons.Add(this);
+            }
+        }
+
+        public void UnregisterBeacon()
+        {
+            activeHeatBeacons.Remove(this);
+        }
+
+        public static bool IsPositionNearHeatBeacon(Vector3 position, out float warmthBonus)
+        {
+            warmthBonus = 0f;
+            bool found = false;
+            for (int i = 0; i < activeHeatBeacons.Count; i++)
+            {
+                var beacon = activeHeatBeacons[i];
+                if (beacon != null && !beacon.IsDead && beacon.gameObject.activeInHierarchy)
+                {
+                    float dist = Vector3.Distance(position, beacon.transform.position);
+                    if (dist <= beacon.AuraRadius)
+                    {
+                        warmthBonus = Mathf.Max(warmthBonus, beacon.ThermalWarmthBonus);
+                        found = true;
+                    }
+                }
+            }
+            return found;
+        }
 
         private void Awake()
         {
