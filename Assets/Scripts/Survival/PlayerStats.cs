@@ -306,6 +306,17 @@ namespace Outpost404.Survival
             }
         }
 
+        public void SetStatsDirect(float health, float hunger, float stamina, float bodyTemperature)
+        {
+            if (!float.IsNaN(health) && !float.IsInfinity(health)) currentHealth = Mathf.Clamp(health, 0f, maxHealth);
+            if (!float.IsNaN(hunger) && !float.IsInfinity(hunger)) currentHunger = Mathf.Clamp(hunger, 0f, maxHunger);
+            if (!float.IsNaN(stamina) && !float.IsInfinity(stamina)) currentStamina = Mathf.Clamp(stamina, 0f, maxStamina);
+            if (!float.IsNaN(bodyTemperature) && !float.IsInfinity(bodyTemperature)) currentBodyTemperature = Mathf.Clamp(bodyTemperature, minBodyTemperature, normalBodyTemperature);
+            isDead = currentHealth <= 0.001f;
+            wasHypothermic = IsInHypothermia;
+            NotifyAllStats();
+        }
+
         public void TakeDamage(float amount, Vector3 hitPoint = default, Vector3 hitNormal = default)
         {
             if (isDead || amount <= 0f || float.IsNaN(amount)) return;
