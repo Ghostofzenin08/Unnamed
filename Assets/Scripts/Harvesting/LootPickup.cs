@@ -88,6 +88,8 @@ namespace Outpost404.Harvesting
 
             if (inventory.AddItem(itemData, quantity, out int remaining))
             {
+                Outpost404.Audio.AudioManager.Instance?.PlayPickupChime();
+
                 if (remaining <= 0)
                 {
                     if (Application.isPlaying)
