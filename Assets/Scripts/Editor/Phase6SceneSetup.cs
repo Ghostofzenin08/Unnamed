@@ -430,17 +430,24 @@ namespace Outpost404.EditorTools
                 GameObject vis = Object.Instantiate(beastModel);
                 vis.name = "Visual_AlienPredatorBeast";
                 vis.transform.SetParent(enemy.transform, false);
-                vis.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+                vis.transform.localPosition = new Vector3(0f, 0.92f, 0f);
                 vis.transform.localRotation = Quaternion.identity;
-                vis.transform.localScale = new Vector3(2.4f, 2.4f, 2.4f);
+                vis.transform.localScale = new Vector3(4.8f, 4.8f, 4.8f);
                 var childCols = vis.GetComponentsInChildren<Collider>(true);
                 for (int c = 0; c < childCols.Length; c++) Object.DestroyImmediate(childCols[c]);
+
+                Material prowlerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_EnemyProwler.mat");
+                if (prowlerMat != null)
+                {
+                    var rends = vis.GetComponentsInChildren<Renderer>(true);
+                    for (int r = 0; r < rends.Length; r++) rends[r].sharedMaterial = prowlerMat;
+                }
             }
 
             var col = enemy.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 0.75f, 0f);
-            col.radius = 0.55f;
-            col.height = 1.5f;
+            col.center = new Vector3(0f, 0.95f, 0f);
+            col.radius = 0.75f;
+            col.height = 1.9f;
 
             var agent = enemy.AddComponent<NavMeshAgent>();
             agent.speed = stats.PatrolSpeed;
