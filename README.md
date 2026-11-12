@@ -29,7 +29,7 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * **Storage & Data**: ScriptableObject-driven items (`ItemDataSO`), crafting recipes (`RecipeSO`), resource node yields (`ResourceNodeSO`), and enemy balance (`EnemyStatsSO`)
 * **Base Building & Holograms**: Real-time holographic ghost placement system with clearance collision detection, rotation snapping, and defensive/environmental structures (`BuildableStructure`)
 * **Custom 3D Art Pipeline**: Full 11-asset pipeline (Orbital Astronaut, Predator Beast, Alien Timber Tree, Mineral Boulder, Scrap Hull, Ration Packs, Shrub flora) imported via glTFast
-* **Verification Suite**: 79 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Asset Validation, and Scene Wiring with 100% pass rate in Unity Test Runner
+* **Verification Suite**: 133 automated EditMode NUnit tests covering Locomotion, Camera, Survival Stats, Inventory, Harvesting, Combat, Enemy FSM, Crafting & Building, Day/Night & Environment, Audio System & Procedural Waveforms, Screen Shake & Combat Juice, and Scene Wiring with 100% pass rate in Unity Test Runner
 
 ---
 
@@ -68,6 +68,14 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
   - Thermal Radiance: `BuildableStructure` Pulse Heat Beacons radiate +35°C thermal warmth in aura radius, rapidly restoring body temperature and halting frost damage
   - Night Anomaly Surge: `EnemyController` nocturnal aggression buff during Night phase (expanded detection 12m -> 20m, +20% chase speed, +25% attack damage), smoothly reverting on Dawn
   - HUD Clock, Weather & Thermometer: Digital military clock ("Day 1 | 14:00"), diurnal phase icon badge, ambient temperature readout, body temperature gauge slider, and active hypothermia warning banner
+- [x] **Phase 8: Audio & Combat Juice (Audio System & Game Feel)**
+  - `AudioManager`: Master, SFX, and Music channel buses with [0, 1] volume clamping and bus muting toggles
+  - Procedural Dynamic Audio Synthesis: Zero-asset dynamic sound generation via `AudioClip.Create` (footsteps, melee whooshes, timber chop thuds, rock crystalline clinks, enemy fleshy hits, pickup chimes, crafting success fanfare, day wind breeze, night anomaly drone, hypothermia teeth chattering)
+  - Screen Shake Trauma System: `TriggerShake(intensity, duration)` in `TopDownCameraFollow` with smooth damping decay, triggered on melee swings, target impacts, taking damage, and structure destruction
+  - Melee Slash Arc: Visual sweeping arc ribbon effect on attack swings in `PlayerCombat`
+  - Procedural Combat Particles: Dynamic particle bursts for wood splinters, rock sparks, and bioluminescent alien blood
+  - Hit Feedback: Entity visual recoil displacement and material flash on taking damage
+  - Automatic Level Opener & Build Settings: `ProjectSceneOpener` ensuring `SampleScene.unity` auto-loads on startup and is registered in `EditorBuildSettings`
 
 ---
 
@@ -128,6 +136,16 @@ You are **Dr. Nolan Cross**, an orbital biosphere engineer whose survey drop-pod
 * `Prefab_Barricade`: `BuildableStructure` (150 Durability), `BoxCollider`, `NavMeshObstacle` (Carving: On)
 * `Prefab_HeatBeacon`: `BuildableStructure` (120 Durability), 5.5m Aura Radius, 5 HP/s Regen, Point Light, `NavMeshObstacle`
 
+### Audio & Game Feel (`GameObject: AudioManager`)
+* `AudioManager`: Configured with `MusicSource` (looping ambient atmosphere) and `SFXSource` (combat & interaction feedback)
+* Audio Channels: Master, SFX, and Music channel volume buses with muting controls
+* Procedural waveforms: Synthesized real-time audio clips for footsteps, whooshes, timber chopping, mineral mining, beast hits, chimes, and hypothermia cues
+
+### Opening the Complete Game Level in Unity
+If the Unity Editor ever displays a blank new scene named `Untitled`:
+1. Double-click **`Assets/Scenes/SampleScene.unity`** inside the **Project** window under `Assets/Scenes/` (or click top menu `Outpost 404 -> Open Game Scene (SampleScene)`).
+2. The automated `ProjectSceneOpener` startup script also automatically detects blank `Untitled` scenes on launch and restores `SampleScene.unity` with all Phase 1-8 systems active.
+
 ---
 
 ## 6. Verification Suite
@@ -144,5 +162,7 @@ unity cmd "test run"
 * **Crafting & Base Building**: 24 tests
 * **Day/Night Cycle & Environmental Hazards**: 23 tests
 * **Staged 3D Asset Import Pipeline**: 1 test
-* **Scene Integration & Wiring**: 11 tests
-* **Total**: 108 passed / 0 failed (100% pass rate)
+* **Audio System & Procedural Waveforms**: 11 tests
+* **Screen Shake & Combat Juice**: 7 tests
+* **Scene Integration, Opener & Wiring**: 18 tests
+* **Total**: 133 passed / 0 failed (100% pass rate)
