@@ -51,6 +51,16 @@ namespace Outpost404.Player
         private bool hasLookTarget;
         private bool isSprinting;
 
+        [Header("Footstep Audio Cadence")]
+        [SerializeField] private float walkStepInterval = 0.36f;
+        [SerializeField] private float sprintStepInterval = 0.24f;
+        private float stepTimer = 0f;
+
+        public event System.Action OnFootstepTaken;
+        public float WalkStepInterval { get => walkStepInterval; set => walkStepInterval = Mathf.Max(0.05f, value); }
+        public float SprintStepInterval { get => sprintStepInterval; set => sprintStepInterval = Mathf.Max(0.05f, value); }
+        public float StepTimer => stepTimer;
+
         public Vector3 CurrentMoveDirection => targetMoveVelocity.normalized;
         public Vector3 CurrentVelocity => currentVelocity;
         public Vector3 TargetMoveVelocity => targetMoveVelocity;
@@ -95,6 +105,27 @@ namespace Outpost404.Player
         {
             ReadInput();
             ComputeCursorLookTarget();
+            UpdateFootsteps();
+        }
+
+        public void UpdateFootsteps(float deltaTime = -1f)
+        {
+            float dt = (deltaTime >= 0f) ? deltaTime : Time.deltaTime;
+            if (IsMoving)
+            {
+                stepTimer += dt;
+                float interval = isSprinting ? sprintStepInterval : walkStepInterval;
+                if (stepTimer >= interval)
+                {
+                    stepTimer = 0f;
+                    OnFootstepTaken?.Invoke();
+                    Outpost404.Audio.AudioManager.Instance?.PlayFootstep();
+                }
+            }
+            else
+            {
+                stepTimer = 0f;
+            }
         }
 
         private void FixedUpdate()
@@ -255,6 +286,11 @@ namespace Outpost404.Player
                     rb.MoveRotation(smoothedRotation);
                 }
             }
+        }
+
+        public void SetDirectTargetVelocity(Vector3 velocity)
+        {
+            targetMoveVelocity = velocity;
         }
 
         /// <summary>
