@@ -45,6 +45,9 @@ namespace Outpost404.UI
         [SerializeField] private Image bodyTempFillImage;
         [SerializeField] private GameObject frostWarningBanner;
 
+        private Text frostWarningText;
+        private Image frostWarningImage;
+
         public PlayerStats TargetStats { get => targetStats; set => SetTargetStats(value); }
         public Text ClockText => clockText;
         public Image PhaseIconImage => phaseIconImage;
@@ -52,6 +55,8 @@ namespace Outpost404.UI
         public Text BodyTempText => bodyTempText;
         public Slider BodyTempSlider => bodyTempSlider;
         public GameObject FrostWarningBanner => frostWarningBanner;
+        public Text FrostWarningText => frostWarningText != null ? frostWarningText : (frostWarningBanner != null ? frostWarningBanner.GetComponentInChildren<Text>() : null);
+        public Image FrostWarningImage => frostWarningImage != null ? frostWarningImage : (frostWarningBanner != null ? frostWarningBanner.GetComponent<Image>() : null);
 
         private void Start()
         {
@@ -99,6 +104,11 @@ namespace Outpost404.UI
             if (bodyTempFillImage == null && bodyTempSlider != null && bodyTempSlider.fillRect != null)
             {
                 bodyTempFillImage = bodyTempSlider.fillRect.GetComponent<Image>();
+            }
+            if (frostWarningBanner != null)
+            {
+                frostWarningText = frostWarningBanner.GetComponentInChildren<Text>();
+                frostWarningImage = frostWarningBanner.GetComponent<Image>();
             }
         }
 
@@ -218,16 +228,46 @@ namespace Outpost404.UI
                 bodyTempSlider.value = fraction;
                 if (bodyTempFillImage != null)
                 {
-                    bodyTempFillImage.color = temp < 32f ? new Color(0.2f, 0.75f, 1f) : new Color(1f, 0.65f, 0.2f);
+                    bodyTempFillImage.color = temp < 25f ? new Color(0.95f, 0.25f, 0.25f) : (temp < 32f ? new Color(0.2f, 0.75f, 1f) : new Color(1f, 0.65f, 0.2f));
                 }
             }
+
+            UpdateFrostWarningVisuals(temp);
         }
 
         private void HandleHypothermiaChanged(bool isInHypothermia)
         {
-            if (frostWarningBanner != null)
+            float temp = targetStats != null ? targetStats.CurrentBodyTemperature : (isInHypothermia ? 30f : 37f);
+            UpdateFrostWarningVisuals(temp);
+        }
+
+        public void UpdateFrostWarningVisuals(float temp)
+        {
+            if (frostWarningBanner == null) return;
+
+            float critThreshold = targetStats != null ? targetStats.CriticalFreezingThreshold : 25f;
+            float hypoThreshold = targetStats != null ? targetStats.HypothermiaThreshold : 32f;
+
+            bool isHypo = temp < hypoThreshold;
+            bool isCritical = temp < critThreshold;
+
+            frostWarningBanner.SetActive(isHypo);
+
+            if (isHypo)
             {
-                frostWarningBanner.SetActive(isInHypothermia);
+                if (frostWarningText == null) frostWarningText = frostWarningBanner.GetComponentInChildren<Text>();
+                if (frostWarningImage == null) frostWarningImage = frostWarningBanner.GetComponent<Image>();
+
+                if (isCritical)
+                {
+                    if (frostWarningText != null) frostWarningText.text = "CRITICAL: SEVERE FREEZING - IMMINENT FROST DEATH";
+                    if (frostWarningImage != null) frostWarningImage.color = new Color(0.85f, 0.15f, 0.15f, 0.95f);
+                }
+                else
+                {
+                    if (frostWarningText != null) frostWarningText.text = "WARNING: HYPOTHERMIA DETECTED - SEEK HEAT BEACON";
+                    if (frostWarningImage != null) frostWarningImage.color = new Color(0.12f, 0.45f, 0.75f, 0.90f);
+                }
             }
         }
 
@@ -243,8 +283,11 @@ namespace Outpost404.UI
 
                 if (ambientTempText != null)
                 {
-                    float amb = mgr.CurrentAmbientTemperature;
-                    ambientTempText.text = $"Amb: {amb:F0}°C";
+                    float amb = (targetStats != null && targetStats.IsNearHeatSource)
+                        ? targetStats.CurrentEffectiveAmbientTemperature
+                        : mgr.CurrentAmbientTemperature;
+                    string heatTag = (targetStats != null && targetStats.IsNearHeatSource) ? " (Heat)" : "";
+                    ambientTempText.text = $"Amb: {amb:F0}°C{heatTag}";
                     ambientTempText.color = amb < 0f ? new Color(0.35f, 0.85f, 1f) : (amb > 20f ? new Color(1f, 0.75f, 0.3f) : Color.white);
                 }
 
