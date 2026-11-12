@@ -142,7 +142,7 @@ unity cmd "test run"
 * **Resource Harvesting**: 6 tests
 * **Enemy AI & Combat**: 10 tests
 * **Crafting & Base Building**: 24 tests
-* **Day/Night Cycle & Environmental Hazards**: 18 tests
+* **Day/Night Cycle & Environmental Hazards**: 23 tests
 * **Staged 3D Asset Import Pipeline**: 1 test
 * **Scene Integration & Wiring**: 11 tests
-* **Total**: 103 passed / 0 failed (100% pass rate)
+* **Total**: 108 passed / 0 failed (100% pass rate)
