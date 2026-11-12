@@ -100,6 +100,7 @@ namespace Outpost404.Harvesting
 
             SpawnLoot();
             OnNodeDepleted?.Invoke(this);
+            Outpost404.Objective.MissionStatistics.Instance?.RecordResourceHarvested();
 
             if (nodeCollider != null) nodeCollider.enabled = false;
 
