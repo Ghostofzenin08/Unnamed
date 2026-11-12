@@ -42,7 +42,21 @@ namespace Outpost404.CameraControl
         [SerializeField] private Vector2 minBounds = new Vector2(-100f, -100f);
         [SerializeField] private Vector2 maxBounds = new Vector2(100f, 100f);
 
+        [Header("Screen Shake & Combat Juice")]
+        [Tooltip("Frequency of trauma oscillation.")]
+        [SerializeField] private float shakeFrequency = 35f;
+
         private Vector3 currentVelocity = Vector3.zero;
+        private float shakeIntensity = 0f;
+        private float shakeDuration = 0f;
+        private float shakeTimer = 0f;
+        private Vector3 currentShakeOffset = Vector3.zero;
+
+        public float CurrentShakeIntensity => (shakeDuration > 0.0001f && shakeTimer > 0f) ? (shakeIntensity * Mathf.Clamp01(shakeTimer / shakeDuration)) : 0f;
+        public bool IsShaking => shakeTimer > 0.0001f && shakeIntensity > 0.0001f;
+        public Vector3 CurrentShakeOffset => currentShakeOffset;
+        public float ShakeDuration => shakeDuration;
+        public float ShakeTimer => shakeTimer;
 
         public Transform Target
         {
@@ -88,6 +102,8 @@ namespace Outpost404.CameraControl
 
             if (Application.isPlaying)
             {
+                UpdateShake();
+                desiredPosition += currentShakeOffset;
                 transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref currentVelocity, smoothTime);
             }
             else
@@ -138,6 +154,56 @@ namespace Outpost404.CameraControl
                 transform.position = ComputeDestination();
                 ApplyCameraRotation();
             }
+        }
+
+        /// <summary>
+        /// Triggers smooth damped screen shake decaying smoothly over duration.
+        /// Ignores non-positive or NaN values safely.
+        /// </summary>
+        public void TriggerShake(float intensity, float duration)
+        {
+            if (float.IsNaN(intensity) || float.IsInfinity(intensity) || intensity <= 0f) return;
+            if (float.IsNaN(duration) || float.IsInfinity(duration) || duration <= 0f) return;
+
+            float currentRemaining = CurrentShakeIntensity;
+            shakeIntensity = Mathf.Max(currentRemaining, intensity);
+            shakeDuration = Mathf.Max(shakeTimer, duration);
+            shakeTimer = shakeDuration;
+        }
+
+        public void UpdateShake(float deltaTime = -1f)
+        {
+            float dt = (deltaTime >= 0f) ? deltaTime : Time.deltaTime;
+            if (shakeTimer > 0f && shakeDuration > 0f)
+            {
+                shakeTimer -= dt;
+                float progress = Mathf.Clamp01(shakeTimer / shakeDuration);
+                float magnitude = shakeIntensity * progress;
+
+                float sample = (Time.time > 0f ? Time.time : (shakeDuration - shakeTimer)) * shakeFrequency;
+                float offsetX = (Mathf.PerlinNoise(sample, 0.15f) * 2f - 1f) * magnitude;
+                float offsetY = (Mathf.PerlinNoise(0.25f, sample) * 2f - 1f) * (magnitude * 0.6f);
+                float offsetZ = (Mathf.PerlinNoise(sample, sample) * 2f - 1f) * magnitude;
+
+                currentShakeOffset = new Vector3(offsetX, offsetY, offsetZ);
+
+                if (shakeTimer <= 0f)
+                {
+                    StopShake();
+                }
+            }
+            else
+            {
+                currentShakeOffset = Vector3.zero;
+            }
+        }
+
+        public void StopShake()
+        {
+            shakeTimer = 0f;
+            shakeIntensity = 0f;
+            shakeDuration = 0f;
+            currentShakeOffset = Vector3.zero;
         }
 
         private void OnValidate()
