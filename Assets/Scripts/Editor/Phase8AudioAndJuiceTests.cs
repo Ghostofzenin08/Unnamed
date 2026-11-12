@@ -128,6 +128,28 @@ namespace Outpost404.Tests
             Assert.AreEqual(0f, audioManager.EffectiveMusicVolume, 0.001f);
         }
 
+        [Test]
+        public void AudioManager_UnmutingOrRaisingVolume_ResumesStoppedMusicSource()
+        {
+            audioManager.MusicSource.clip = audioManager.DayAmbientClip;
+            audioManager.MusicVolume = 0f;
+            Assert.AreEqual(0f, audioManager.EffectiveMusicVolume, 0.001f);
+
+            // Raising volume from 0 should trigger playback if not playing
+            audioManager.MusicVolume = 0.5f;
+            Assert.AreEqual(0.5f, audioManager.EffectiveMusicVolume, 0.01f);
+            Assert.IsTrue(audioManager.MusicSource.isPlaying);
+
+            // Muting sets volume to 0
+            audioManager.IsMusicMuted = true;
+            Assert.AreEqual(0f, audioManager.MusicSource.volume, 0.001f);
+
+            // Unmuting restores positive volume and resumes
+            audioManager.IsMusicMuted = false;
+            Assert.AreEqual(0.5f, audioManager.MusicSource.volume, 0.01f);
+            Assert.IsTrue(audioManager.MusicSource.isPlaying);
+        }
+
         // =========================================================================
         // 2. Procedural Audio Synthesis Waveforms
         // =========================================================================
@@ -216,6 +238,24 @@ namespace Outpost404.Tests
         }
 
         [Test]
+        public void ProceduralAudioSynth_CreateDayAndNightAmbient_HaveSeamlessBoundaryCrossfade()
+        {
+            var dayClip = ProceduralAudioSynth.CreateDayAmbient();
+            Assert.IsNotNull(dayClip);
+            float[] dayData = new float[dayClip.samples];
+            dayClip.GetData(dayData, 0);
+            float dayBoundaryDiff = Mathf.Abs(dayData[0] - dayData[dayData.Length - 1]);
+            Assert.Less(dayBoundaryDiff, 0.05f, "Day ambient loop boundary must be smoothly continuous.");
+
+            var nightClip = ProceduralAudioSynth.CreateNightAmbient();
+            Assert.IsNotNull(nightClip);
+            float[] nightData = new float[nightClip.samples];
+            nightClip.GetData(nightData, 0);
+            float nightBoundaryDiff = Mathf.Abs(nightData[0] - nightData[nightData.Length - 1]);
+            Assert.Less(nightBoundaryDiff, 0.05f, "Night ambient loop boundary must be smoothly continuous.");
+        }
+
+        [Test]
         public void AudioManager_PlaybackTriggers_ExecuteWithoutException()
         {
             Assert.DoesNotThrow(() =>
@@ -301,6 +341,24 @@ namespace Outpost404.Tests
             Assert.AreEqual(Vector3.zero, cameraFollow.CurrentShakeOffset);
         }
 
+        [Test]
+        public void ScreenShake_CameraFollowAppliesShakeOffsetDirectlyToPosition()
+        {
+            cameraFollow.Target = playerObj.transform;
+            cameraFollow.SnapToTarget();
+
+            cameraFollow.TriggerShake(0.50f, 0.20f);
+            Assert.IsTrue(cameraFollow.IsShaking);
+
+            cameraFollow.StepFollow(0.05f);
+            Assert.AreNotEqual(Vector3.zero, cameraFollow.CurrentShakeOffset);
+
+            // Direct shake offset is added on top of base tracking destination rather than smoothed away
+            Vector3 expectedPos = cameraFollow.ComputeDestination() + cameraFollow.CurrentShakeOffset;
+            float distToExpected = Vector3.Distance(cameraFollow.transform.position, expectedPos);
+            Assert.Less(distToExpected, 0.15f, "Camera position must reflect direct shake offset application.");
+        }
+
         // =========================================================================
         // 4. Footstep Cadence in PlayerController
         // =========================================================================
@@ -364,8 +422,91 @@ namespace Outpost404.Tests
             Assert.IsTrue(foundSampleScene, "Assets/Scenes/SampleScene.unity must be registered and enabled in EditorBuildSettings.");
         }
 
+        [Test]
+        public void ProjectSceneOpener_EnsureDefaultSceneOpen_WithUntitledScene_RestoresSampleScene()
+        {
+            // When already on SampleScene, should return false (no-op)
+            EditorSceneManager.OpenScene(ProjectSceneOpener.DefaultScenePath, OpenSceneMode.Single);
+            bool openedWhenAlreadyOpen = ProjectSceneOpener.EnsureDefaultSceneOpen();
+            Assert.IsFalse(openedWhenAlreadyOpen, "EnsureDefaultSceneOpen should do nothing if SampleScene is already open.");
+
+            // Create blank untitled scene
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            Assert.IsTrue(string.IsNullOrEmpty(activeScene.path) || activeScene.name == "Untitled");
+
+            // EnsureDefaultSceneOpen should detect untitled scene and restore SampleScene
+            bool restored = ProjectSceneOpener.EnsureDefaultSceneOpen();
+            Assert.IsTrue(restored, "EnsureDefaultSceneOpen must restore SampleScene when on untitled scene.");
+            Assert.AreEqual("SampleScene", UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        }
+
         // =========================================================================
-        // 6. Scene Integration & Wiring Suite
+        // 6. Procedural Combat Juice & Effects
+        // =========================================================================
+
+        [Test]
+        public void ProceduralCombatEffects_SpawnMeleeSlashArc_CreatesValidLineRendererGeometry()
+        {
+            GameObject arcObj = ProceduralCombatEffects.SpawnMeleeSlashArc(playerObj.transform, 1.6f, 110f);
+            try
+            {
+                Assert.IsNotNull(arcObj, "SpawnMeleeSlashArc must return instantiated GameObject.");
+                var lr = arcObj.GetComponent<LineRenderer>();
+                Assert.IsNotNull(lr, "Slash arc must contain LineRenderer component.");
+                Assert.AreEqual(16, lr.positionCount, "Slash arc must have 16 sampled vertices.");
+                Assert.Greater(lr.startWidth, 0.1f);
+                Assert.Greater(lr.endWidth, 0.01f);
+            }
+            finally
+            {
+                if (arcObj != null) Object.DestroyImmediate(arcObj);
+            }
+        }
+
+        [Test]
+        public void ProceduralCombatEffects_SpawnImpactParticles_ConfiguresTunedParticlesForEachImpactType()
+        {
+            var types = new[] { ImpactType.Timber, ImpactType.Rock, ImpactType.Enemy };
+            foreach (var type in types)
+            {
+                GameObject particleObj = ProceduralCombatEffects.SpawnImpactParticles(Vector3.zero, Vector3.up, type);
+                try
+                {
+                    Assert.IsNotNull(particleObj, $"Impact particles for {type} must instantiate.");
+                    var ps = particleObj.GetComponent<ParticleSystem>();
+                    Assert.IsNotNull(ps, $"Impact particles for {type} must have ParticleSystem.");
+                    Assert.IsFalse(ps.main.loop, "Impact particles should not loop.");
+                    Assert.IsTrue(ps.main.playOnAwake, "Impact particles should play on awake.");
+                }
+                finally
+                {
+                    if (particleObj != null) Object.DestroyImmediate(particleObj);
+                }
+            }
+        }
+
+        [Test]
+        public void EnemyController_PlayHitFeedback_ExecutesSafely()
+        {
+            GameObject testEnemy = new GameObject("TestEnemyFeedback");
+            try
+            {
+                testEnemy.AddComponent<SphereCollider>();
+                var enemyController = testEnemy.AddComponent<Outpost404.AI.EnemyController>();
+                Assert.DoesNotThrow(() =>
+                {
+                    enemyController.PlayHitFeedback(Vector3.forward);
+                });
+            }
+            finally
+            {
+                Object.DestroyImmediate(testEnemy);
+            }
+        }
+
+        // =========================================================================
+        // 7. Scene Integration & Wiring Suite
         // =========================================================================
 
         [Test, Order(1)]
