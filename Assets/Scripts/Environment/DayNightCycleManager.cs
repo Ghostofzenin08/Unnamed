@@ -162,6 +162,11 @@ namespace Outpost404.Environment
             OnTimeChanged?.Invoke(normalizedTime, currentDay);
         }
 
+        public void SetTimeAndDay(float time, int day)
+        {
+            SetTime(time, day);
+        }
+
         public static DayPhase GetPhaseFromTime(float time)
         {
             while (time < 0f) time += 1f;
