@@ -57,6 +57,15 @@ namespace Outpost404.AI
         public Transform TargetPlayer => targetPlayer;
         public bool IsNightSurgeActive => isNightSurgeActive;
         public float CurrentDetectionRadius => (stats != null ? stats.DetectionRadius : 12f) * (isNightSurgeActive ? nightDetectionMultiplier : 1.0f);
+        public float CurrentLoseSightRadius
+        {
+            get
+            {
+                float baseLose = stats != null ? stats.LoseSightRadius : 14f;
+                float scaledLose = baseLose * (isNightSurgeActive ? nightDetectionMultiplier : 1.0f);
+                return Mathf.Max(CurrentDetectionRadius * 1.2f, scaledLose);
+            }
+        }
         public float CurrentChaseSpeed => (stats != null ? stats.ChaseSpeed : 4.8f) * (isNightSurgeActive ? nightChaseSpeedMultiplier : 1.0f);
         public float CurrentAttackDamage => (stats != null ? stats.AttackDamage : 15f) * (isNightSurgeActive ? nightAttackDamageMultiplier : 1.0f);
         public float NightDetectionMultiplier { get => nightDetectionMultiplier; set => nightDetectionMultiplier = value; }
@@ -108,11 +117,9 @@ namespace Outpost404.AI
             var targetMgr = mgr != null ? mgr : Outpost404.Environment.DayNightCycleManager.Instance;
             if (targetMgr != null)
             {
+                targetMgr.OnPhaseChanged -= HandleDayPhaseChanged;
                 targetMgr.OnPhaseChanged += HandleDayPhaseChanged;
-                if (targetMgr.CurrentPhase == Outpost404.Environment.DayPhase.Night)
-                {
-                    ApplyNightSurge(true);
-                }
+                ApplyNightSurge(targetMgr.CurrentPhase == Outpost404.Environment.DayPhase.Night);
             }
         }
 
@@ -140,20 +147,12 @@ namespace Outpost404.AI
 
         private void HandleDayPhaseChanged(Outpost404.Environment.DayPhase phase)
         {
-            if (phase == Outpost404.Environment.DayPhase.Night)
-            {
-                ApplyNightSurge(true);
-            }
-            else if (phase == Outpost404.Environment.DayPhase.Dawn)
-            {
-                ApplyNightSurge(false);
-            }
+            ApplyNightSurge(phase == Outpost404.Environment.DayPhase.Night);
         }
 
         private void Start()
         {
             FindPlayerIfNull();
-            SubscribeToDayNightCycle();
         }
 
         private void Update()
@@ -264,7 +263,7 @@ namespace Outpost404.AI
         private void UpdateChaseState(float distToPlayer)
         {
             float attackRange = stats != null ? stats.AttackRange : 1.8f;
-            float loseRadius = stats != null ? stats.LoseSightRadius : 14f;
+            float loseRadius = CurrentLoseSightRadius;
 
             if (!IsPlayerValidAndAlive() || distToPlayer > loseRadius)
             {
