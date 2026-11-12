@@ -48,6 +48,7 @@ namespace Outpost404.Survival
 
         // Runtime state timers
         private float staminaRegenTimer = 0f;
+        private float shiverAudioTimer = 0f;
         private bool isDead = false;
         private bool wasHypothermic = false;
         private float currentEffectiveAmbient = 22f;
@@ -244,11 +245,27 @@ namespace Outpost404.Survival
                 if (currentBodyTemperature < criticalFreezingThreshold)
                 {
                     TakeDamage(criticalFreezingDamageRate * deltaTime);
+
+                    // Shivering / teeth chattering cue when body temperature is critical
+                    shiverAudioTimer -= deltaTime;
+                    if (shiverAudioTimer <= 0f)
+                    {
+                        shiverAudioTimer = 3.5f;
+                        Outpost404.Audio.AudioManager.Instance?.PlayHypothermiaShiver();
+                    }
                 }
                 else if (currentBodyTemperature < hypothermiaThreshold)
                 {
                     TakeDamage(hypothermiaDamageRate * deltaTime);
                 }
+                else
+                {
+                    shiverAudioTimer = 0f;
+                }
+            }
+            else
+            {
+                shiverAudioTimer = 0f;
             }
 
             OnBodyTemperatureChanged?.Invoke(currentBodyTemperature);
@@ -295,6 +312,17 @@ namespace Outpost404.Survival
 
             currentHealth = Mathf.Clamp(currentHealth - amount, 0f, maxHealth);
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
+
+            // Combat Juice: Trauma screen shake when receiving direct damage
+            if (amount >= 1.0f)
+            {
+                var cam = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
+                if (cam != null)
+                {
+                    float shakeAmt = Mathf.Clamp(amount / 30f, 0.15f, 0.45f);
+                    cam.TriggerShake(shakeAmt, 0.18f);
+                }
+            }
 
             if (currentHealth <= 0.0001f)
             {
