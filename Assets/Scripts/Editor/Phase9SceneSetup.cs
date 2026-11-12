@@ -73,6 +73,7 @@ namespace Outpost404.EditorTools
             Material groundCrystalMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Ground_Crystal.mat");
             Material groundDeltaMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_PulseRock.mat");
             Material wallMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_Wall.mat");
+            Material enemyProwlerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/M_EnemyProwler.mat");
 
             // 4. Critical 3D Visual Fix: Player Configuration
             GameObject player = GameObject.FindWithTag("Player");
@@ -81,11 +82,13 @@ namespace Outpost404.EditorTools
             {
                 player = new GameObject("Player");
                 player.tag = "Player";
-                var col = player.AddComponent<CapsuleCollider>();
-                col.center = new Vector3(0f, 1f, 0f);
-                col.radius = 0.5f;
-                col.height = 2.0f;
             }
+
+            var col = player.GetComponent<CapsuleCollider>();
+            if (col == null) col = player.AddComponent<CapsuleCollider>();
+            col.center = new Vector3(0f, 1f, 0f);
+            col.radius = 0.5f;
+            col.height = 2.0f;
 
             // Strip any primitive mesh renderer on player root
             var pMr = player.GetComponent<MeshRenderer>();
@@ -258,6 +261,29 @@ namespace Outpost404.EditorTools
                 stageList[2].secondaryRequired = 5;
             }
 
+            // Horde Spawn Points for Extraction Surge Defense around Sector Alpha beacon
+            GameObject hordeSpawnRoot = GameObject.Find("HordeSpawnPoints");
+            if (hordeSpawnRoot != null) Object.DestroyImmediate(hordeSpawnRoot);
+            hordeSpawnRoot = new GameObject("HordeSpawnPoints");
+            hordeSpawnRoot.transform.SetParent(envRoot.transform, false);
+
+            List<Transform> hordeSpawnPoints = new List<Transform>();
+            Vector3[] hordePositions = new Vector3[]
+            {
+                new Vector3(-30f, 0.05f, -8f),   // North
+                new Vector3(-30f, 0.05f, -52f),  // South
+                new Vector3(-8f, 0.05f, -30f),   // East
+                new Vector3(-52f, 0.05f, -30f)   // West
+            };
+            string[] hordePointNames = new string[] { "SpawnPoint_Horde_North", "SpawnPoint_Horde_South", "SpawnPoint_Horde_East", "SpawnPoint_Horde_West" };
+            for (int h = 0; h < hordePositions.Length; h++)
+            {
+                GameObject sp = new GameObject(hordePointNames[h]);
+                sp.transform.SetParent(hordeSpawnRoot.transform, false);
+                sp.transform.position = hordePositions[h];
+                hordeSpawnPoints.Add(sp.transform);
+            }
+
             // Scrap Metal and Starter Pickups around Sector Alpha
             Create3DPickup(envRoot.transform, "Pickup_Scrap_1", new Vector3(-27f, 0.2f, -18f), itemScrap, 4, hullModel, new Vector3(0.7f, 0.7f, 0.7f));
             Create3DPickup(envRoot.transform, "Pickup_Scrap_2", new Vector3(-33f, 0.2f, -22f), itemScrap, 3, hullModel, new Vector3(0.7f, 0.7f, 0.7f));
@@ -320,8 +346,27 @@ namespace Outpost404.EditorTools
             string[] prowlerNames = new string[] { "Enemy_Prowler_Alpha", "Enemy_Prowler_Beta", "Enemy_Prowler_Gamma", "Enemy_Prowler_Delta", "Enemy_Prowler_Epsilon" };
             for (int i = 0; i < prowlerNames.Length; i++)
             {
-                Create3DEnemy(enemiesRoot.transform, prowlerNames[i], deltaProwlerPositions[i], beastModel, enemyStats);
+                Create3DEnemy(enemiesRoot.transform, prowlerNames[i], deltaProwlerPositions[i], beastModel, enemyStats, enemyProwlerMat);
             }
+
+            // Save configured prowler as Prefab_AlienProwler for extraction surge horde spawning
+            if (!AssetDatabase.IsValidFolder("Assets/Prefabs/Enemies"))
+            {
+                AssetDatabase.CreateFolder("Assets/Prefabs", "Enemies");
+            }
+            GameObject sampleEnemy = enemiesRoot.transform.Find("Enemy_Prowler_Alpha")?.gameObject;
+            GameObject prowlerPrefab = null;
+            if (sampleEnemy != null)
+            {
+                prowlerPrefab = PrefabUtility.SaveAsPrefabAsset(sampleEnemy, "Assets/Prefabs/Enemies/Prefab_AlienProwler.prefab");
+            }
+            if (prowlerPrefab == null)
+            {
+                prowlerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemies/Prefab_AlienProwler.prefab");
+            }
+
+            // Hook up Horde config (prefab & Sector Alpha perimeter spawn points) to BeaconObjective
+            beaconLogic.SetHordeConfig(prowlerPrefab, hordeSpawnPoints);
 
             // High-value Delta loot caches
             Create3DPickup(envRoot.transform, "Pickup_BeastMeat_2", new Vector3(28f, 0.2f, -28f), itemRawMeat, 3, meatModel, new Vector3(0.75f, 0.75f, 0.75f));
@@ -519,7 +564,7 @@ namespace Outpost404.EditorTools
             pickup.Initialize(item, count);
         }
 
-        private static void Create3DEnemy(Transform parent, string name, Vector3 pos, GameObject beastModel, EnemyStatsSO stats)
+        private static GameObject Create3DEnemy(Transform parent, string name, Vector3 pos, GameObject beastModel, EnemyStatsSO stats, Material prowlerMat = null)
         {
             GameObject enemy = new GameObject(name);
             enemy.transform.SetParent(parent);
@@ -530,27 +575,38 @@ namespace Outpost404.EditorTools
                 GameObject vis = Object.Instantiate(beastModel);
                 vis.name = "Visual_AlienPredatorBeast";
                 vis.transform.SetParent(enemy.transform, false);
-                // Elevate by 0.45m so paws touch the ground cleanly, facing +Z forward
-                vis.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+                // Elevate by 0.92m so paws touch the ground cleanly (scale 4.8 yields 1.82m authentic predator height), facing +Z forward
+                vis.transform.localPosition = new Vector3(0f, 0.92f, 0f);
                 vis.transform.localRotation = Quaternion.identity;
-                vis.transform.localScale = new Vector3(2.4f, 2.4f, 2.4f);
+                vis.transform.localScale = new Vector3(4.8f, 4.8f, 4.8f);
                 var childCols = vis.GetComponentsInChildren<Collider>(true);
                 for (int c = 0; c < childCols.Length; c++) Object.DestroyImmediate(childCols[c]);
+
+                if (prowlerMat != null)
+                {
+                    var rends = vis.GetComponentsInChildren<Renderer>(true);
+                    for (int r = 0; r < rends.Length; r++)
+                    {
+                        rends[r].sharedMaterial = prowlerMat;
+                    }
+                }
             }
 
             var col = enemy.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 0.75f, 0f);
-            col.radius = 0.55f;
-            col.height = 1.5f;
+            col.center = new Vector3(0f, 0.95f, 0f);
+            col.radius = 0.75f;
+            col.height = 1.9f;
 
             var agent = enemy.AddComponent<NavMeshAgent>();
-            agent.speed = stats != null ? stats.PatrolSpeed : 2.6f;
+            agent.speed = stats != null ? stats.PatrolSpeed : 2.8f;
             agent.angularSpeed = 480f;
             agent.acceleration = 16f;
-            agent.stoppingDistance = 1.2f;
+            agent.stoppingDistance = 1.5f;
 
             var ctrl = enemy.AddComponent<EnemyController>();
             ctrl.Configure(stats);
+
+            return enemy;
         }
 
         private static Vector3[] GenerateGridClusterPositions(float minX, float maxX, float minZ, float maxZ, int count, int seed)
@@ -593,7 +649,7 @@ namespace Outpost404.EditorTools
             GameObject termHeader = CreateUIText(termPanelObj.transform, "Header", "SOS EXTRACTION BEACON", defaultFont, 18, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(0f, 150f), new Vector2(420f, 40f), new Color(0.3f, 0.9f, 1.0f));
             GameObject stageTitle = CreateUIText(termPanelObj.transform, "StageTitle", "Stage 1: Power Matrix", defaultFont, 15, FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(0f, 105f), new Vector2(400f, 30f), Color.white);
             GameObject stageDesc = CreateUIText(termPanelObj.transform, "StageDescription", "Restore backup power cells.", defaultFont, 13, FontStyle.Normal, TextAnchor.UpperLeft, new Vector2(0f, 65f), new Vector2(400f, 40f), new Color(0.8f, 0.85f, 0.9f));
-            GameObject reqItems = CreateUIText(termPanelObj.transform, "RequiredItems", "â€¢ Conductive Ore: 0/4\nâ€¢ Titanium Scrap: 0/3", defaultFont, 14, FontStyle.Normal, TextAnchor.UpperLeft, new Vector2(0f, 0f), new Vector2(400f, 60f), Color.white);
+            GameObject reqItems = CreateUIText(termPanelObj.transform, "RequiredItems", "- Conductive Ore: 0/4\n- Titanium Scrap: 0/3", defaultFont, 14, FontStyle.Normal, TextAnchor.UpperLeft, new Vector2(0f, 0f), new Vector2(400f, 60f), Color.white);
 
             // Progress Slider
             Slider progressSlider = CreateProgressBar(termPanelObj.transform, "ProgressBar", new Vector2(0f, -50f), new Vector2(380f, 20f), new Color(0.2f, 0.8f, 0.35f));
@@ -662,7 +718,7 @@ namespace Outpost404.EditorTools
 
             GameObject vicTitle = CreateUIText(vicObj.transform, "Title", "MISSION ACCOMPLISHED\nEXTRACTION SUCCESSFUL", defaultFont, 24, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(0f, 120f), new Vector2(600f, 70f), new Color(0.35f, 1f, 0.5f));
             GameObject vicSub = CreateUIText(vicObj.transform, "Subtitle", "Orbital dropship successfully retrieved Dr. Nolan Cross from Outpost 404.", defaultFont, 14, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(0f, 65f), new Vector2(600f, 30f), new Color(0.85f, 0.95f, 0.9f));
-            GameObject vicStats = CreateUIText(vicObj.transform, "Stats", "EXPEDITION REPORT:\n\nâ€¢ Days Survived: 1\nâ€¢ Enemies Slain: 0\nâ€¢ Resources Harvested: 0\nâ€¢ Structures Built: 0", defaultFont, 16, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(0f, -20f), new Vector2(360f, 120f), Color.white);
+            GameObject vicStats = CreateUIText(vicObj.transform, "Stats", "EXPEDITION REPORT:\n\n- Days Survived: 1\n- Enemies Slain: 0\n- Resources Harvested: 0\n- Structures Built: 0", defaultFont, 16, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(0f, -20f), new Vector2(360f, 120f), Color.white);
             Button vicBtn = CreateUIButton(vicObj.transform, "RestartButton", "RESTART EXPEDITION", defaultFont, 15, new Vector2(0f, -140f), new Vector2(240f, 44f), new Color(0.2f, 0.7f, 0.35f));
             vicObj.SetActive(false);
 
@@ -682,7 +738,7 @@ namespace Outpost404.EditorTools
 
             GameObject defTitle = CreateUIText(defObj.transform, "Title", "SIGNAL LOST\nVITALS CRITICAL", defaultFont, 24, FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(0f, 120f), new Vector2(600f, 70f), new Color(1f, 0.25f, 0.25f));
             GameObject defSub = CreateUIText(defObj.transform, "Subtitle", "Expedition life support terminated in Outpost 404.", defaultFont, 14, FontStyle.Normal, TextAnchor.MiddleCenter, new Vector2(0f, 65f), new Vector2(600f, 30f), new Color(0.95f, 0.85f, 0.85f));
-            GameObject defStats = CreateUIText(defObj.transform, "Stats", "EXPEDITION REPORT:\n\nâ€¢ Days Survived: 1\nâ€¢ Enemies Slain: 0\nâ€¢ Resources Harvested: 0\nâ€¢ Structures Built: 0", defaultFont, 16, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(0f, -20f), new Vector2(360f, 120f), Color.white);
+            GameObject defStats = CreateUIText(defObj.transform, "Stats", "EXPEDITION REPORT:\n\n- Days Survived: 1\n- Enemies Slain: 0\n- Resources Harvested: 0\n- Structures Built: 0", defaultFont, 16, FontStyle.Normal, TextAnchor.MiddleLeft, new Vector2(0f, -20f), new Vector2(360f, 120f), Color.white);
             Button defBtn = CreateUIButton(defObj.transform, "RestartButton", "RESTART EXPEDITION", defaultFont, 15, new Vector2(0f, -140f), new Vector2(240f, 44f), new Color(0.85f, 0.25f, 0.25f));
             defObj.SetActive(false);
 
