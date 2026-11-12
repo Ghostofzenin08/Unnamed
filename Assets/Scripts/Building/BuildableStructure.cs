@@ -79,6 +79,7 @@ namespace Outpost404.Building
 
         public void RegisterBeacon()
         {
+            activeHeatBeacons.RemoveAll(b => b == null);
             if (structureType == StructureType.HeatBeacon && !activeHeatBeacons.Contains(this))
             {
                 activeHeatBeacons.Add(this);
@@ -88,16 +89,23 @@ namespace Outpost404.Building
         public void UnregisterBeacon()
         {
             activeHeatBeacons.Remove(this);
+            activeHeatBeacons.RemoveAll(b => b == null);
         }
 
         public static bool IsPositionNearHeatBeacon(Vector3 position, out float warmthBonus)
         {
             warmthBonus = 0f;
             bool found = false;
-            for (int i = 0; i < activeHeatBeacons.Count; i++)
+            for (int i = activeHeatBeacons.Count - 1; i >= 0; i--)
             {
                 var beacon = activeHeatBeacons[i];
-                if (beacon != null && !beacon.IsDead && beacon.gameObject.activeInHierarchy)
+                if (beacon == null)
+                {
+                    activeHeatBeacons.RemoveAt(i);
+                    continue;
+                }
+
+                if (!beacon.IsDead && beacon.gameObject.activeInHierarchy)
                 {
                     float dist = Vector3.Distance(position, beacon.transform.position);
                     if (dist <= beacon.AuraRadius)
