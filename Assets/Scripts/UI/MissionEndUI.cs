@@ -162,10 +162,10 @@ namespace Outpost404.UI
             int structures = targetStatistics != null ? targetStatistics.StructuresBuilt : 0;
 
             return $"EXPEDITION REPORT:\n\n" +
-                   $"â€¢ Days Survived: {days}\n" +
-                   $"â€¢ Enemies Slain: {enemies}\n" +
-                   $"â€¢ Resources Harvested: {resources}\n" +
-                   $"â€¢ Structures Built: {structures}";
+                   $"- Days Survived: {days}\n" +
+                   $"- Enemies Slain: {enemies}\n" +
+                   $"- Resources Harvested: {resources}\n" +
+                   $"- Structures Built: {structures}";
         }
 
         public void RestartMission()
@@ -173,7 +173,14 @@ namespace Outpost404.UI
             Scene activeScene = SceneManager.GetActiveScene();
             if (activeScene.IsValid())
             {
-                SceneManager.LoadScene(activeScene.buildIndex);
+                if (!string.IsNullOrEmpty(activeScene.name))
+                {
+                    SceneManager.LoadScene(activeScene.name);
+                }
+                else if (activeScene.buildIndex >= 0)
+                {
+                    SceneManager.LoadScene(activeScene.buildIndex);
+                }
             }
         }
     }
