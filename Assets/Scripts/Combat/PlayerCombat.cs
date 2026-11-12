@@ -159,7 +159,7 @@ namespace Outpost404.Combat
             Outpost404.Audio.AudioManager.Instance?.PlayMeleeWhoosh();
             var camFollow = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
             if (camFollow != null) camFollow.TriggerShake(0.08f, 0.10f);
-            ProceduralCombatEffects.SpawnMeleeSlashArc(transform, attackRange, 110f);
+            if (Application.isPlaying) ProceduralCombatEffects.SpawnMeleeSlashArc(transform, attackRange, 110f);
 
             ExecuteHitDetection();
             return true;
@@ -223,7 +223,7 @@ namespace Outpost404.Combat
                     }
 
                     Outpost404.Audio.AudioManager.Instance?.PlayImpact(impactType);
-                    ProceduralCombatEffects.SpawnImpactParticles(closestPoint, -transform.forward, impactType);
+                    if (Application.isPlaying) ProceduralCombatEffects.SpawnImpactParticles(closestPoint, -transform.forward, impactType);
 
                     var cam = Camera.main != null ? Camera.main.GetComponent<Outpost404.CameraControl.TopDownCameraFollow>() : null;
                     if (cam != null)
