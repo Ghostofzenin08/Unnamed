@@ -363,7 +363,10 @@ namespace Outpost404.Building
                 }
 
                 // If collision layer includes ground, ignore pure ground colliders
-                if (overlaps[i].name.StartsWith("Ground") || overlaps[i].name.IndexOf("ground", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (overlaps[i] is TerrainCollider ||
+                    overlaps[i].name.StartsWith("Ground") ||
+                    overlaps[i].name.IndexOf("ground", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    overlaps[i].name.IndexOf("terrain", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     continue;
                 }
