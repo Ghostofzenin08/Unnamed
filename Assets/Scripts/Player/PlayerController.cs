@@ -119,7 +119,8 @@ namespace Outpost404.Player
                 {
                     stepTimer = 0f;
                     OnFootstepTaken?.Invoke();
-                    Outpost404.Audio.AudioManager.Instance?.PlayFootstep();
+                    var surface = Outpost404.Audio.TerrainSurfaceAudio.DetectSurface(transform.position);
+                    Outpost404.Audio.AudioManager.Instance?.PlayFootstep(surface);
                 }
             }
             else
