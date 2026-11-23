@@ -131,7 +131,10 @@ namespace Outpost404.EditorTools
             // 10. Re-bake NavMesh across sculpted slopes
             BakeNavMesh();
 
-            // 11. Mark scene dirty and save
+            // 11. Configure URP Post-Processing Global Volume, Biome Particle Systems, and Terrain Surface Audio
+            AtmosphericAndPolishSetup.BuildAtmosphericFXAndPostProcessing();
+
+            // 12. Mark scene dirty and save
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
