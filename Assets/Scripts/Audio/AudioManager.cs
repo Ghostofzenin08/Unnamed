@@ -14,6 +14,14 @@ namespace Outpost404.Audio
         Default
     }
 
+    public enum FootstepSurfaceType
+    {
+        Default = 0,
+        BasaltSoil = 1,
+        BiolumMoss = 2,
+        CrystallineRock = 3
+    }
+
     /// <summary>
     /// Central audio manager managing Master, SFX, and Ambient/Music channel busses,
     /// volume clamping, muting toggles, and dynamic procedural audio synthesis via AudioClip.Create.
@@ -45,6 +53,9 @@ namespace Outpost404.Audio
 
         // Procedural Audio Cache
         private AudioClip footstepClip;
+        private AudioClip footstepBasaltClip;
+        private AudioClip footstepMossClip;
+        private AudioClip footstepRockClip;
         private AudioClip meleeWhooshClip;
         private AudioClip timberChopClip;
         private AudioClip rockClinkClip;
@@ -225,6 +236,9 @@ namespace Outpost404.Audio
         // Procedural Audio Cache & Lazy Accessors
         // ==========================================
         public AudioClip FootstepClip => footstepClip ??= ProceduralAudioSynth.CreateFootstep();
+        public AudioClip FootstepBasaltClip => footstepBasaltClip ??= ProceduralAudioSynth.CreateFootstepBasalt();
+        public AudioClip FootstepMossClip => footstepMossClip ??= ProceduralAudioSynth.CreateFootstepMoss();
+        public AudioClip FootstepRockClip => footstepRockClip ??= ProceduralAudioSynth.CreateFootstepRock();
         public AudioClip MeleeWhooshClip => meleeWhooshClip ??= ProceduralAudioSynth.CreateMeleeWhoosh();
         public AudioClip TimberChopClip => timberChopClip ??= ProceduralAudioSynth.CreateTimberChop();
         public AudioClip RockClinkClip => rockClinkClip ??= ProceduralAudioSynth.CreateRockClink();
@@ -235,9 +249,14 @@ namespace Outpost404.Audio
         public AudioClip NightAmbientClip => nightAmbientClip ??= ProceduralAudioSynth.CreateNightAmbient();
         public AudioClip ShiveringClip => shiveringClip ??= ProceduralAudioSynth.CreateHypothermiaShiver();
 
+        public FootstepSurfaceType LastPlayedFootstepSurface { get; private set; } = FootstepSurfaceType.Default;
+
         public void PrewarmProceduralClips()
         {
             _ = FootstepClip;
+            _ = FootstepBasaltClip;
+            _ = FootstepMossClip;
+            _ = FootstepRockClip;
             _ = MeleeWhooshClip;
             _ = TimberChopClip;
             _ = RockClinkClip;
@@ -255,7 +274,20 @@ namespace Outpost404.Audio
 
         public void PlayFootstep(float pitchJitter = 0.08f)
         {
-            PlayOneShotSFX(FootstepClip, 0.45f, 1.0f + UnityEngine.Random.Range(-pitchJitter, pitchJitter));
+            PlayFootstep(FootstepSurfaceType.Default, pitchJitter);
+        }
+
+        public void PlayFootstep(FootstepSurfaceType surfaceType, float pitchJitter = 0.08f)
+        {
+            LastPlayedFootstepSurface = surfaceType;
+            AudioClip clip = surfaceType switch
+            {
+                FootstepSurfaceType.BasaltSoil => FootstepBasaltClip,
+                FootstepSurfaceType.BiolumMoss => FootstepMossClip,
+                FootstepSurfaceType.CrystallineRock => FootstepRockClip,
+                _ => FootstepClip
+            };
+            PlayOneShotSFX(clip, 0.45f, 1.0f + UnityEngine.Random.Range(-pitchJitter, pitchJitter));
         }
 
         public void PlayMeleeWhoosh()
@@ -403,6 +435,93 @@ namespace Outpost404.Audio
             }
 
             AudioClip clip = AudioClip.Create("Footstep_Procedural", totalSamples, 1, SampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        /// <summary>
+        /// Crunchy ash/gravel footstep with gritty noise transient.
+        /// </summary>
+        public static AudioClip CreateFootstepBasalt()
+        {
+            float duration = 0.08f;
+            int totalSamples = Mathf.CeilToInt(SampleRate * duration);
+            float[] data = new float[totalSamples];
+
+            for (int i = 0; i < totalSamples; i++)
+            {
+                float t = (float)i / SampleRate;
+                float progress = t / duration;
+
+                // Pitch drop 90Hz to 35Hz with heavy granular crunch
+                float freq = Mathf.Lerp(90f, 35f, progress);
+                float tone = Mathf.Sin(2f * Mathf.PI * freq * t);
+                float noise = (UnityEngine.Random.value * 2f - 1f) * 0.58f;
+
+                float envelope = Mathf.Exp(-38f * t);
+                data[i] = Mathf.Clamp((tone * 0.45f + noise * 0.55f) * envelope * 0.85f, -1f, 1f);
+            }
+
+            AudioClip clip = AudioClip.Create("Footstep_Basalt_Procedural", totalSamples, 1, SampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        /// <summary>
+        /// Muffled soft turf footstep with muted organic thump and soft decay.
+        /// </summary>
+        public static AudioClip CreateFootstepMoss()
+        {
+            float duration = 0.085f;
+            int totalSamples = Mathf.CeilToInt(SampleRate * duration);
+            float[] data = new float[totalSamples];
+
+            for (int i = 0; i < totalSamples; i++)
+            {
+                float t = (float)i / SampleRate;
+                float progress = t / duration;
+
+                // Deep low-frequency organic thud 65Hz to 28Hz
+                float freq = Mathf.Lerp(65f, 28f, progress);
+                float tone = Mathf.Sin(2f * Mathf.PI * freq * t);
+                float subtleNoise = (UnityEngine.Random.value * 2f - 1f) * 0.12f;
+
+                // Smooth attack and soft decay
+                float attack = Mathf.Sin(Mathf.Clamp01(progress * 2.5f) * Mathf.PI * 0.5f);
+                float decay = Mathf.Exp(-24f * t);
+                data[i] = Mathf.Clamp((tone * 0.88f + subtleNoise * 0.12f) * attack * decay * 0.82f, -1f, 1f);
+            }
+
+            AudioClip clip = AudioClip.Create("Footstep_Moss_Procedural", totalSamples, 1, SampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        /// <summary>
+        /// Sharp resonant stone click with snappy high transient and subtle crystal ringing.
+        /// </summary>
+        public static AudioClip CreateFootstepRock()
+        {
+            float duration = 0.055f;
+            int totalSamples = Mathf.CeilToInt(SampleRate * duration);
+            float[] data = new float[totalSamples];
+
+            for (int i = 0; i < totalSamples; i++)
+            {
+                float t = (float)i / SampleRate;
+                float progress = t / duration;
+
+                // High resonant attack 420Hz down to 210Hz + crystalline harmonic at 840Hz
+                float freq = Mathf.Lerp(420f, 210f, progress);
+                float tone1 = Mathf.Sin(2f * Mathf.PI * freq * t);
+                float tone2 = Mathf.Sin(2f * Mathf.PI * (freq * 2.1f) * t) * 0.35f;
+                float clickNoise = (UnityEngine.Random.value * 2f - 1f) * 0.28f * Mathf.Exp(-120f * t);
+
+                float envelope = Mathf.Exp(-52f * t);
+                data[i] = Mathf.Clamp((tone1 * 0.65f + tone2 * 0.25f + clickNoise) * envelope * 0.90f, -1f, 1f);
+            }
+
+            AudioClip clip = AudioClip.Create("Footstep_Rock_Procedural", totalSamples, 1, SampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }
